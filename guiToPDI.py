@@ -1,3 +1,4 @@
+import cv2
 import operator
 import tkinter as tk
 from pathlib import Path
@@ -68,10 +69,18 @@ class ImageOperationGUI:
             return
         
         if alvo == 1:
+            if self.imagem1 is not None:
+                cv2.destroyWindow(self.imagem1.imageName)
+            
             self.imagem1 = nova_imagem
+            self.imagem1.showImage()
             self.label_img1.config(text=f"Imagem 1: {Path(self.imagem1.imageName).name}")
         else:
+            if self.imagem2 is not None:
+                cv2.destroyWindow(self.imagem2.imageName)
+            
             self.imagem2 = nova_imagem
+            self.imagem2.showImage()
             self.label_img2.config(text=f"Imagem 2: {Path(self.imagem2.imageName).name}")
         
         if self.imagem1 is not None and self.imagem2 is not None:
