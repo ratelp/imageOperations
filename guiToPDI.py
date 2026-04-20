@@ -183,30 +183,37 @@ class ImageOperationGUI:
 
 
     def _criar_aba_pseudocolorizacao(self, parent):
-        tk.Label(parent, text="Pseudocolorização (Fatiamento)", font=("Arial", 14, "bold")).pack(pady=15)
+        tk.Label(parent, text="Pseudocolorização", font=("Arial", 14, "bold")).pack(pady=15)
         
+        # Modo de operação
+        frame_modo = tk.Frame(parent)
+        frame_modo.pack(pady=5)
+        self.modo_pseudo = tk.StringVar(value="fatiamento_densidade")
+        tk.Radiobutton(frame_modo, text="Fatiamento por Densidade", variable=self.modo_pseudo, value="fatiamento_densidade", command=self._atualizar_aba_pseudo).pack(side="left", padx=10)
+        tk.Radiobutton(frame_modo, text="Redistribuição de Cores (Mapa de Cores)", variable=self.modo_pseudo, value="redistribuicao", command=self._atualizar_aba_pseudo).pack(side="left", padx=10)
+
+        # Seleção de Imagem
         frame_selecao = tk.Frame(parent)
         frame_selecao.pack(pady=10)
-        
         self.label_img_pseudo = tk.Label(frame_selecao, text="Nenhuma imagem selecionada", font=("Arial", 10), foreground="red")
         self.label_img_pseudo.pack(side="left", padx=10)
-        
         tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_pseudocolorizacao).pack(side="left", padx=10)
         
-        frame_intervalo = tk.LabelFrame(parent, text="Intervalo de Intensidade (Fatiamento)", padx=10, pady=10)
-        frame_intervalo.pack(pady=15, padx=20, fill="x")
+        # Frame Fatiamento
+        self.frame_fatiamento = tk.Frame(parent)
+        frame_intervalo = tk.LabelFrame(self.frame_fatiamento, text="Intervalo de Intensidade (Fatiamento por Densidade)", padx=10, pady=10)
+        frame_intervalo.pack(pady=5, padx=20, fill="x")
         
         self.pseudo_min_val = tk.IntVar(value=0)
         self.pseudo_max_val = tk.IntVar(value=60)
         
         tk.Label(frame_intervalo, text="Mínimo (0-255):").pack(side="left", padx=5)
         tk.Entry(frame_intervalo, textvariable=self.pseudo_min_val, width=5).pack(side="left", padx=5)
-        
         tk.Label(frame_intervalo, text="Máximo (0-255):").pack(side="left", padx=5)
         tk.Entry(frame_intervalo, textvariable=self.pseudo_max_val, width=5).pack(side="left", padx=5)
         
-        frame_cor = tk.LabelFrame(parent, text="Cor de Destaque (RGB)", padx=10, pady=10)
-        frame_cor.pack(pady=15, padx=20, fill="x")
+        frame_cor = tk.LabelFrame(self.frame_fatiamento, text="Cor de Destaque (RGB)", padx=10, pady=10)
+        frame_cor.pack(pady=5, padx=20, fill="x")
         
         self.pseudo_r_val = tk.IntVar(value=160)
         self.pseudo_g_val = tk.IntVar(value=57)
@@ -218,11 +225,46 @@ class ImageOperationGUI:
         tk.Entry(frame_cor, textvariable=self.pseudo_g_val, width=5).pack(side="left", padx=5)
         tk.Label(frame_cor, text="B:").pack(side="left", padx=5)
         tk.Entry(frame_cor, textvariable=self.pseudo_b_val, width=5).pack(side="left", padx=5)
+
+        # Frame Redistribuição (Mapa de Cores)
+        self.frame_redistribuicao = tk.Frame(parent)
+        frame_mapa = tk.LabelFrame(self.frame_redistribuicao, text="Redistribuição (Mapa de Cores)", padx=10, pady=10)
+        frame_mapa.pack(pady=15, padx=20, fill="x")
+
+        self.dicionario_colormaps = {
+            "JET": cv2.COLORMAP_JET,
+            "HOT": cv2.COLORMAP_HOT,
+            "RAINBOW": cv2.COLORMAP_RAINBOW,
+            "HSV": cv2.COLORMAP_HSV,
+            "OCEAN": cv2.COLORMAP_OCEAN,
+            "BONE": cv2.COLORMAP_BONE,
+            "SPRING": cv2.COLORMAP_SPRING,
+            "WINTER": cv2.COLORMAP_WINTER,
+            "AUTUMN": cv2.COLORMAP_AUTUMN,
+            "SUMMER": cv2.COLORMAP_SUMMER,
+            "VIRIDIS": cv2.COLORMAP_VIRIDIS
+        }
         
-        btn_aplicar = tk.Button(parent, text="Aplicar Pseudocolorização", command=self.aplicar_pseudocolorizacao_fatiamento, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
+        tk.Label(frame_mapa, text="Selecione o Mapa:").pack(side="left", padx=5)
+        self.combo_colormap = ttk.Combobox(frame_mapa, values=list(self.dicionario_colormaps.keys()), state="readonly", width=15)
+        self.combo_colormap.set("JET")
+        self.combo_colormap.pack(side="left", padx=5)
+
+        self._atualizar_aba_pseudo()
+
+        btn_aplicar = tk.Button(parent, text="Aplicar Pseudocolorização", command=self.aplicar_pseudocolorizacao, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
         btn_aplicar.pack(pady=20)
         
         self.imagem_para_pseudo = None
+
+    def _atualizar_aba_pseudo(self):
+        modo = self.modo_pseudo.get()
+        if modo == "fatiamento_densidade":
+            self.frame_redistribuicao.pack_forget()
+            self.frame_fatiamento.pack(fill="x", expand=True)
+        elif modo == "redistribuicao":
+            self.frame_fatiamento.pack_forget()
+            self.frame_redistribuicao.pack(fill="x", expand=True)
 
     def selecionar_imagem_pseudocolorizacao(self):
         from implementacaoPrimeiraUnidade import Image
@@ -239,28 +281,36 @@ class ImageOperationGUI:
         except Exception as erro:
             messagebox.showerror("Erro", f"Não foi possível carregar a imagem.\n{erro}")
 
-    def aplicar_pseudocolorizacao_fatiamento(self):
+    def aplicar_pseudocolorizacao(self):
         from implementacaoPrimeiraUnidade import PseudoColorizer
         if self.imagem_para_pseudo is None:
             messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
             return
             
         try:
-            min_val = self.pseudo_min_val.get()
-            max_val = self.pseudo_max_val.get()
-            r_val = self.pseudo_r_val.get()
-            g_val = self.pseudo_g_val.get()
-            b_val = self.pseudo_b_val.get()
-            
-            # opencv expects BGR
-            color_bgr = (b_val, g_val, r_val)
-            
             colorizer = PseudoColorizer(self.imagem_para_pseudo)
-            result_img = colorizer.apply_slicing(min_val, max_val, color_bgr)
+            modo = self.modo_pseudo.get()
             
-            cv2.imshow("Pseudocolorização - Fatiamento", result_img)
+            if modo == "fatiamento_densidade":
+                min_val = self.pseudo_min_val.get()
+                max_val = self.pseudo_max_val.get()
+                r_val = self.pseudo_r_val.get()
+                g_val = self.pseudo_g_val.get()
+                b_val = self.pseudo_b_val.get()
+                
+                color_bgr = (b_val, g_val, r_val)
+                result_img = colorizer.apply_slicing(min_val, max_val, color_bgr)
+                cv2.imshow("Pseudocolorização - Fatiamento por Densidade", result_img)
+                
+            elif modo == "redistribuicao":
+                nome_colormap = self.combo_colormap.get()
+                id_colormap = self.dicionario_colormaps.get(nome_colormap, cv2.COLORMAP_JET)
+                
+                result_img = colorizer.apply_redistribution(id_colormap)
+                cv2.imshow(f"Pseudocolorização - Redistribuição ({nome_colormap})", result_img)
+                
         except Exception as e:
-            messagebox.showerror("Erro", f"Valores inválidos.\n{e}")
+            messagebox.showerror("Erro", f"Ocorreu um erro ao aplicar.\n{e}")
 
     def _criar_aba_operacoes(self, parent):
         """Cria a aba de operações entre duas imagens"""

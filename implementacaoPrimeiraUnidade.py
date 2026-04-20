@@ -264,6 +264,18 @@ class PseudoColorizer:
 
         return colored
 
+    def apply_redistribution(self, colormap_type):
+        img = self.image
+
+        # inicialmente, converte imagem para escala de cinza 
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img
+            
+        colored = cv2.applyColorMap(gray, colormap_type)
+        return colored
+
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)
