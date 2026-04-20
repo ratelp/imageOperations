@@ -31,6 +31,27 @@ class ImageOperationGUI:
         self.largura_canvas_transformacao = 800
         self.altura_canvas_transformacao = 800
         self.cor_fundo_canvas = (230, 230, 230)
+        self.modo_transformacao = tk.StringVar(value="individual")
+        self.opcoes_transformacoes_compostas = [
+            "Rotação",
+            "Translação",
+            "Escala",
+            "Cisalhamento",
+            "Reflexão",
+            "Zoom in - Replicação",
+            "Zoom in - Interpolação",
+            "Zoom out - Exclusão",
+            "Zoom out - Valor médio",
+        ]
+        self.transformacao_para_adicionar = tk.StringVar(value=self.opcoes_transformacoes_compostas[0])
+        self.fila_transformacoes_compostas = []
+        self.sequencia_composicao = []
+        self.indice_composicao = 0
+        self.composicao_ativa = False
+        self.imagem_composicao_atual = None
+        self.botao_proxima_transformacao = None
+        self.lista_transformacoes_compostas = None
+        self.label_status_composicao = None
         
         # Variáveis para os parâmetros de transformação
         self.rotacao_valor = tk.DoubleVar(value=0)
@@ -41,6 +62,9 @@ class ImageOperationGUI:
         self.cisalhox_valor = tk.DoubleVar(value=0)
         self.cisalhoy_valor = tk.DoubleVar(value=0)
         self.reflexao_valor = tk.StringVar(value="Nenhuma")
+        self.zoom_tipo_valor = tk.StringVar(value="Zoom in - Replicação")
+        self.zoom_fator_valor = tk.DoubleVar(value=1.0)
+        self.slider_zoom_fator = None
         
         self._criar_widgets()
     
@@ -94,6 +118,77 @@ class ImageOperationGUI:
         self.label_img_transform.pack(side="left", padx=5)
         
         tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_transformacao).pack(side="left", padx=5)
+
+        frame_modo = tk.LabelFrame(parent, text="Modo de transformação", padx=10, pady=8)
+        frame_modo.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Radiobutton(
+            frame_modo,
+            text="Individual",
+            value="individual",
+            variable=self.modo_transformacao,
+            command=self._atualizar_estado_modo_transformacao,
+        ).pack(side="left", padx=5)
+        tk.Radiobutton(
+            frame_modo,
+            text="Transformação composta",
+            value="composta",
+            variable=self.modo_transformacao,
+            command=self._atualizar_estado_modo_transformacao,
+        ).pack(side="left", padx=5)
+
+        frame_composta = tk.LabelFrame(parent, text="Transformações da composição", padx=10, pady=8)
+        frame_composta.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Label(
+            frame_composta,
+            text="Adicione transformações na ordem desejada. Você pode repetir transformações.",
+            font=("Arial", 9),
+        ).pack(anchor="w", pady=(0, 6))
+
+        frame_add_composta = tk.Frame(frame_composta)
+        frame_add_composta.pack(fill="x", pady=(0, 6))
+
+        combo_transformacoes = ttk.Combobox(
+            frame_add_composta,
+            values=self.opcoes_transformacoes_compostas,
+            state="readonly",
+            width=20,
+            textvariable=self.transformacao_para_adicionar,
+        )
+        combo_transformacoes.pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            frame_add_composta,
+            text="Adicionar",
+            command=self.adicionar_transformacao_composta,
+            bg="#212F22",
+            fg="white",
+        ).pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            frame_add_composta,
+            text="Remover selecionada",
+            command=self.remover_transformacao_composta,
+        ).pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            frame_add_composta,
+            text="Limpar fila",
+            command=self.limpar_transformacoes_compostas,
+        ).pack(side="left")
+
+        self.lista_transformacoes_compostas = tk.Listbox(frame_composta, height=6)
+        self.lista_transformacoes_compostas.pack(fill="x")
+
+        self.label_status_composicao = tk.Label(
+            frame_composta,
+            text="Fila vazia.",
+            font=("Arial", 9),
+            anchor="w",
+            justify="left",
+        )
+        self.label_status_composicao.pack(fill="x", pady=(6, 0))
         
         # Frame com scrollbar para os sliders
         canvas = tk.Canvas(parent)
@@ -129,6 +224,29 @@ class ImageOperationGUI:
         )
         combo_reflexao.pack(side="left", padx=5)
         combo_reflexao.bind("<<ComboboxSelected>>", lambda _event: self.atualizar_transformacao())
+
+        frame_zoom = tk.LabelFrame(scrollable_frame, text="Zoom", padx=10, pady=8)
+        frame_zoom.pack(fill="x", padx=10, pady=5)
+
+        linha_zoom_tipo = tk.Frame(frame_zoom)
+        linha_zoom_tipo.pack(fill="x", pady=(0, 6))
+        tk.Label(linha_zoom_tipo, text="Tipo", width=15, font=("Arial", 9)).pack(side="left")
+        combo_zoom = ttk.Combobox(
+            linha_zoom_tipo,
+            values=[
+                "Zoom in - Replicação",
+                "Zoom in - Interpolação",
+                "Zoom out - Exclusão",
+                "Zoom out - Valor médio",
+            ],
+            state="readonly",
+            width=20,
+            textvariable=self.zoom_tipo_valor,
+        )
+        combo_zoom.pack(side="left", padx=5)
+        combo_zoom.bind("<<ComboboxSelected>>", self._ao_mudar_tipo_zoom)
+
+        self.slider_zoom_fator = self._adicionar_slider(frame_zoom, "Fator Zoom", self.zoom_fator_valor, 1.0, 4.0, 0.1)
         
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -138,6 +256,40 @@ class ImageOperationGUI:
         frame_botoes.pack(pady=10)
         
         tk.Button(frame_botoes, text="Resetar", command=self.resetar_transformacoes, bg="#FF6B6B", fg="white").pack(side="left", padx=5)
+        self.botao_proxima_transformacao = tk.Button(
+            frame_botoes,
+            text="Próxima",
+            command=self.proxima_transformacao_composta,
+            state=tk.DISABLED,
+            bg="#212F22",
+            fg="white",
+        )
+        self.botao_proxima_transformacao.pack(side="left", padx=5)
+
+        self._atualizar_estado_modo_transformacao()
+        self._atualizar_limites_zoom()
+
+    def _atualizar_estado_modo_transformacao(self):
+        if self.botao_proxima_transformacao is None:
+            return
+
+        if self.modo_transformacao.get() == "composta":
+            self.botao_proxima_transformacao.config(state=tk.NORMAL)
+        else:
+            self.botao_proxima_transformacao.config(state=tk.DISABLED)
+
+        self.composicao_ativa = False
+        self.indice_composicao = 0
+        self.sequencia_composicao = []
+        self.imagem_composicao_atual = None
+        self._atualizar_status_composicao()
+
+        if self.modo_transformacao.get() == "composta" and self.imagem_transformacao is not None:
+            imagem_base = self._criar_canvas_base_transformacao()
+            self._mostrar_imagem_transformacao(imagem_base)
+
+        if self.modo_transformacao.get() == "individual" and self.imagem_transformacao is not None:
+            self.atualizar_transformacao()
     
     def _adicionar_slider(self, parent, label_text, var, from_val, to_val, resolution):
         """Adiciona um slider com rótulo e valor"""
@@ -158,6 +310,31 @@ class ImageOperationGUI:
             valor_label.config(text=f"{var.get():.2f}")
         
         var.trace("w", atualizar_label)
+        return slider
+
+    def _limites_zoom_por_tipo(self, tipo_zoom):
+        if tipo_zoom in {"Zoom in - Replicação", "Zoom in - Interpolação"}:
+            return 1.0, 4.0
+        return 0.2, 1.0
+
+    def _normalizar_fator_zoom(self, tipo_zoom, fator_zoom):
+        minimo, maximo = self._limites_zoom_por_tipo(tipo_zoom)
+        return max(minimo, min(maximo, fator_zoom))
+
+    def _atualizar_limites_zoom(self):
+        tipo_zoom = self.zoom_tipo_valor.get()
+        minimo, maximo = self._limites_zoom_por_tipo(tipo_zoom)
+
+        if self.slider_zoom_fator is not None:
+            self.slider_zoom_fator.configure(from_=minimo, to=maximo)
+
+        fator_atual = self._normalizar_fator_zoom(tipo_zoom, self.zoom_fator_valor.get())
+        if fator_atual != self.zoom_fator_valor.get():
+            self.zoom_fator_valor.set(fator_atual)
+
+    def _ao_mudar_tipo_zoom(self, _event=None):
+        self._atualizar_limites_zoom()
+        self.atualizar_transformacao()
     
     def selecionar_imagem_transformacao(self):
         """Seleciona uma imagem para transformação"""
@@ -201,6 +378,280 @@ class ImageOperationGUI:
             return self.cor_fundo_canvas[0]
         return self.cor_fundo_canvas
 
+    def _aplicar_rotacao(self, imagem, angulo):
+        if angulo == 0:
+            return imagem
+
+        altura, largura = imagem.shape[:2]
+        centro = (largura / 2.0, altura / 2.0)
+        matriz = cv2.getRotationMatrix2D(centro, angulo, 1.0)
+        return cv2.warpAffine(
+            imagem,
+            matriz,
+            (largura, altura),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=self._valor_borda(imagem),
+        )
+
+    def _aplicar_translacao(self, imagem, deslocamento_x, deslocamento_y):
+        if deslocamento_x == 0 and deslocamento_y == 0:
+            return imagem
+
+        altura, largura = imagem.shape[:2]
+        matriz = np.float32([
+            [1, 0, int(deslocamento_x)],
+            [0, 1, int(deslocamento_y)],
+        ])
+        return cv2.warpAffine(
+            imagem,
+            matriz,
+            (largura, altura),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=self._valor_borda(imagem),
+        )
+
+    def _aplicar_escala(self, imagem, fator_x, fator_y):
+        if fator_x <= 0 or fator_y <= 0:
+            return imagem
+
+        if fator_x == 1 and fator_y == 1:
+            return imagem
+
+        altura, largura = imagem.shape[:2]
+        centro_x = largura / 2.0
+        centro_y = altura / 2.0
+        matriz = np.float32([
+            [fator_x, 0, centro_x * (1 - fator_x)],
+            [0, fator_y, centro_y * (1 - fator_y)],
+        ])
+        return cv2.warpAffine(
+            imagem,
+            matriz,
+            (largura, altura),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=self._valor_borda(imagem),
+        )
+
+    def _aplicar_cisalhamento(self, imagem, fator_x, fator_y):
+        if fator_x == 0 and fator_y == 0:
+            return imagem
+
+        altura, largura = imagem.shape[:2]
+        centro_x = largura / 2.0
+        centro_y = altura / 2.0
+        matriz = np.float32([
+            [1, fator_x, -fator_x * centro_y],
+            [fator_y, 1, -fator_y * centro_x],
+        ])
+        return cv2.warpAffine(
+            imagem,
+            matriz,
+            (largura, altura),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=self._valor_borda(imagem),
+        )
+
+    def _aplicar_reflexao(self, imagem, reflexao):
+        if reflexao == "Nenhuma":
+            return imagem
+        if reflexao == "Eixo X":
+            return cv2.flip(imagem, 0)
+        if reflexao == "Eixo Y":
+            return cv2.flip(imagem, 1)
+        if reflexao == "Ambos":
+            return cv2.flip(imagem, -1)
+        return imagem
+
+    def _aplicar_zoom(self, imagem, tipo_zoom, fator_zoom):
+        if self.transformador is None:
+            return imagem
+
+        fator_zoom = self._normalizar_fator_zoom(tipo_zoom, fator_zoom)
+        self.transformador.imagem_preview = imagem.copy()
+        if tipo_zoom == "Zoom in - Replicação":
+            return self.transformador.zoom_in_replicacao(fator_zoom)
+        if tipo_zoom == "Zoom in - Interpolação":
+            return self.transformador.zoom_in_interpolacao(fator_zoom)
+        if tipo_zoom == "Zoom out - Exclusão":
+            return self.transformador.zoom_out_exclusao(fator_zoom)
+        if tipo_zoom == "Zoom out - Valor médio":
+            return self.transformador.zoom_out_valor_medio(fator_zoom)
+        return imagem
+
+    def _capturar_parametros_transformacao(self, nome_transformacao):
+        if nome_transformacao == "Rotação":
+            return {"angulo": self.rotacao_valor.get()}
+        if nome_transformacao == "Translação":
+            return {
+                "deslocamento_x": self.transladx_valor.get(),
+                "deslocamento_y": self.translady_valor.get(),
+            }
+        if nome_transformacao == "Escala":
+            return {
+                "fator_x": self.escalax_valor.get(),
+                "fator_y": self.escalay_valor.get(),
+            }
+        if nome_transformacao == "Cisalhamento":
+            return {
+                "fator_x": self.cisalhox_valor.get(),
+                "fator_y": self.cisalhoy_valor.get(),
+            }
+        if nome_transformacao == "Reflexão":
+            return {"reflexao": self.reflexao_valor.get()}
+        if nome_transformacao in {
+            "Zoom in - Replicação",
+            "Zoom in - Interpolação",
+            "Zoom out - Exclusão",
+            "Zoom out - Valor médio",
+        }:
+            fator = self._normalizar_fator_zoom(nome_transformacao, self.zoom_fator_valor.get())
+            return {
+                "tipo_zoom": nome_transformacao,
+                "fator_zoom": fator,
+            }
+        return {}
+
+    def _formatar_transformacao_composta(self, nome_transformacao, parametros):
+        if nome_transformacao == "Rotação":
+            return f"Rotação (ângulo={parametros['angulo']:.2f})"
+        if nome_transformacao == "Translação":
+            return f"Translação (x={parametros['deslocamento_x']:.2f}, y={parametros['deslocamento_y']:.2f})"
+        if nome_transformacao == "Escala":
+            return f"Escala (x={parametros['fator_x']:.2f}, y={parametros['fator_y']:.2f})"
+        if nome_transformacao == "Cisalhamento":
+            return f"Cisalhamento (x={parametros['fator_x']:.2f}, y={parametros['fator_y']:.2f})"
+        if nome_transformacao == "Reflexão":
+            return f"Reflexão ({parametros['reflexao']})"
+        if nome_transformacao in {
+            "Zoom in - Replicação",
+            "Zoom in - Interpolação",
+            "Zoom out - Exclusão",
+            "Zoom out - Valor médio",
+        }:
+            return f"{nome_transformacao} (fator={parametros['fator_zoom']:.2f})"
+        return nome_transformacao
+
+    def _atualizar_status_composicao(self):
+        if self.label_status_composicao is None:
+            return
+
+        total = len(self.fila_transformacoes_compostas)
+        if total == 0:
+            self.label_status_composicao.config(text="Fila vazia.")
+            return
+
+        if self.composicao_ativa:
+            self.label_status_composicao.config(text=f"Executando passo {self.indice_composicao + 1} de {len(self.sequencia_composicao)}.")
+            return
+
+        self.label_status_composicao.config(text=f"{total} transformação(ões) na fila.")
+
+    def adicionar_transformacao_composta(self):
+        nome_transformacao = self.transformacao_para_adicionar.get()
+        if nome_transformacao not in self.opcoes_transformacoes_compostas:
+            messagebox.showwarning("Aviso", "Selecione uma transformação válida para adicionar.")
+            return
+
+        parametros = self._capturar_parametros_transformacao(nome_transformacao)
+        item = {
+            "nome": nome_transformacao,
+            "parametros": parametros,
+        }
+        self.fila_transformacoes_compostas.append(item)
+
+        descricao = self._formatar_transformacao_composta(nome_transformacao, parametros)
+        self.lista_transformacoes_compostas.insert(tk.END, f"{len(self.fila_transformacoes_compostas)}. {descricao}")
+
+        self.composicao_ativa = False
+        self.indice_composicao = 0
+        self.sequencia_composicao = []
+        self.imagem_composicao_atual = None
+        self._atualizar_status_composicao()
+
+    def remover_transformacao_composta(self):
+        if self.lista_transformacoes_compostas is None:
+            return
+
+        selecao = self.lista_transformacoes_compostas.curselection()
+        if not selecao:
+            messagebox.showwarning("Aviso", "Selecione uma transformação da fila para remover.")
+            return
+
+        indice = selecao[0]
+        self.lista_transformacoes_compostas.delete(indice)
+        self.fila_transformacoes_compostas.pop(indice)
+        self._recarregar_lista_transformacoes_compostas()
+
+    def limpar_transformacoes_compostas(self):
+        if self.lista_transformacoes_compostas is not None:
+            self.lista_transformacoes_compostas.delete(0, tk.END)
+
+        self.fila_transformacoes_compostas = []
+        self.composicao_ativa = False
+        self.indice_composicao = 0
+        self.sequencia_composicao = []
+        self.imagem_composicao_atual = None
+        self._atualizar_status_composicao()
+
+    def _recarregar_lista_transformacoes_compostas(self):
+        if self.lista_transformacoes_compostas is None:
+            return
+
+        self.lista_transformacoes_compostas.delete(0, tk.END)
+        for indice, item in enumerate(self.fila_transformacoes_compostas, start=1):
+            descricao = self._formatar_transformacao_composta(item["nome"], item["parametros"])
+            self.lista_transformacoes_compostas.insert(tk.END, f"{indice}. {descricao}")
+
+        self.composicao_ativa = False
+        self.indice_composicao = 0
+        self.sequencia_composicao = []
+        self.imagem_composicao_atual = None
+        self._atualizar_status_composicao()
+
+    def _aplicar_transformacao_por_nome(self, imagem, nome_transformacao, parametros=None):
+        parametros = {} if parametros is None else parametros
+
+        if nome_transformacao == "Rotação":
+            return self._aplicar_rotacao(imagem, parametros.get("angulo", self.rotacao_valor.get()))
+        if nome_transformacao == "Translação":
+            return self._aplicar_translacao(
+                imagem,
+                parametros.get("deslocamento_x", self.transladx_valor.get()),
+                parametros.get("deslocamento_y", self.translady_valor.get()),
+            )
+        if nome_transformacao == "Escala":
+            return self._aplicar_escala(
+                imagem,
+                parametros.get("fator_x", self.escalax_valor.get()),
+                parametros.get("fator_y", self.escalay_valor.get()),
+            )
+        if nome_transformacao == "Cisalhamento":
+            return self._aplicar_cisalhamento(
+                imagem,
+                parametros.get("fator_x", self.cisalhox_valor.get()),
+                parametros.get("fator_y", self.cisalhoy_valor.get()),
+            )
+        if nome_transformacao == "Reflexão":
+            return self._aplicar_reflexao(imagem, parametros.get("reflexao", self.reflexao_valor.get()))
+        if nome_transformacao in {
+            "Zoom in - Replicação",
+            "Zoom in - Interpolação",
+            "Zoom out - Exclusão",
+            "Zoom out - Valor médio",
+        }:
+            tipo_zoom = parametros.get("tipo_zoom", nome_transformacao)
+            fator_zoom = parametros.get("fator_zoom", self.zoom_fator_valor.get())
+            return self._aplicar_zoom(
+                imagem,
+                tipo_zoom,
+                fator_zoom,
+            )
+        return imagem
+
     def _criar_canvas_base_transformacao(self):
         imagem = self.imagem_transformacao.image
         if imagem.ndim == 2:
@@ -228,6 +679,11 @@ class ImageOperationGUI:
 
         canvas[y_ini:y_fim, x_ini:x_fim] = imagem[0:src_y_fim, 0:src_x_fim]
         return canvas
+
+    def _mostrar_imagem_transformacao(self, imagem):
+        imagem_canvas = self._renderizar_em_canvas(imagem)
+        cv2.imshow(self.nome_janela_transformacao, imagem_canvas)
+        cv2.waitKey(1)
 
     def _renderizar_em_canvas(self, imagem):
         """Renderiza a imagem transformada em um canvas fixo com fundo claro."""
@@ -283,87 +739,23 @@ class ImageOperationGUI:
         if self.imagem_transformacao is None:
             return
 
-        mapa_reflexao = {
-            "Nenhuma": "nenhum",
-            "Eixo X": "x",
-            "Eixo Y": "y",
-            "Ambos": "ambos",
-        }
-        
+        if self.modo_transformacao.get() == "composta":
+            return
+
         imagem_temp = self._criar_canvas_base_transformacao()
-        altura, largura = imagem_temp.shape[:2]
-        centro_x = largura / 2.0
-        centro_y = altura / 2.0
-        borda = self._valor_borda(imagem_temp)
+        imagem_temp = self._aplicar_rotacao(imagem_temp, self.rotacao_valor.get())
+        imagem_temp = self._aplicar_translacao(imagem_temp, self.transladx_valor.get(), self.translady_valor.get())
+        imagem_temp = self._aplicar_escala(imagem_temp, self.escalax_valor.get(), self.escalay_valor.get())
+        imagem_temp = self._aplicar_cisalhamento(imagem_temp, self.cisalhox_valor.get(), self.cisalhoy_valor.get())
+        imagem_temp = self._aplicar_reflexao(imagem_temp, self.reflexao_valor.get())
 
-        matriz_rotacao = cv2.getRotationMatrix2D((centro_x, centro_y), self.rotacao_valor.get(), 1.0)
-        imagem_temp = cv2.warpAffine(
+        imagem_temp = self._aplicar_zoom(
             imagem_temp,
-            matriz_rotacao,
-            (largura, altura),
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=borda,
+            self.zoom_tipo_valor.get(),
+            self.zoom_fator_valor.get(),
         )
 
-        matriz_translacao = np.float32([
-            [1, 0, int(self.transladx_valor.get())],
-            [0, 1, int(self.translady_valor.get())],
-        ])
-        imagem_temp = cv2.warpAffine(
-            imagem_temp,
-            matriz_translacao,
-            (largura, altura),
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=borda,
-        )
-
-        escala_x = self.escalax_valor.get()
-        escala_y = self.escalay_valor.get()
-        matriz_escala = np.float32([
-            [escala_x, 0, centro_x * (1 - escala_x)],
-            [0, escala_y, centro_y * (1 - escala_y)],
-        ])
-        imagem_temp = cv2.warpAffine(
-            imagem_temp,
-            matriz_escala,
-            (largura, altura),
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=borda,
-        )
-
-        cisalhamento_x = self.cisalhox_valor.get()
-        cisalhamento_y = self.cisalhoy_valor.get()
-        matriz_cisalhamento = np.float32([
-            [1, cisalhamento_x, -cisalhamento_x * centro_y],
-            [cisalhamento_y, 1, -cisalhamento_y * centro_x],
-        ])
-        imagem_temp = cv2.warpAffine(
-            imagem_temp,
-            matriz_cisalhamento,
-            (largura, altura),
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=borda,
-        )
-
-        reflexao = mapa_reflexao[self.reflexao_valor.get()]
-        if reflexao == "x":
-            imagem_temp = cv2.flip(imagem_temp, 0)
-        elif reflexao == "y":
-            imagem_temp = cv2.flip(imagem_temp, 1)
-        elif reflexao == "ambos":
-            imagem_temp = cv2.flip(imagem_temp, -1)
-
-        cv2.imshow(self.nome_janela_transformacao, imagem_temp)
-        cv2.resizeWindow(
-            self.nome_janela_transformacao,
-            self.largura_canvas_transformacao,
-            self.altura_canvas_transformacao,
-        )
-        cv2.waitKey(1)
+        self._mostrar_imagem_transformacao(imagem_temp)
     
     def aplicar_transformacoes(self):
         """Aplica todas as transformações e salva o resultado"""
@@ -372,6 +764,53 @@ class ImageOperationGUI:
             return
         
         self.atualizar_transformacao()
+
+    def proxima_transformacao_composta(self):
+        if self.imagem_transformacao is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem para transformar.")
+            return
+
+        if self.modo_transformacao.get() != "composta":
+            messagebox.showinfo("Informação", "Selecione o modo 'Transformação composta' para usar o botão Próxima.")
+            return
+
+        if not self.composicao_ativa:
+            self.sequencia_composicao = list(self.fila_transformacoes_compostas)
+            self.indice_composicao = 0
+            self.imagem_composicao_atual = self._criar_canvas_base_transformacao()
+
+            if not self.sequencia_composicao:
+                messagebox.showwarning("Aviso", "Adicione ao menos uma transformação na fila da composição.")
+                return
+
+            self.composicao_ativa = True
+            self._atualizar_status_composicao()
+
+        if self.indice_composicao >= len(self.sequencia_composicao):
+            messagebox.showinfo("Informação", "A transformação composta já foi concluída. Clique em Próxima novamente para reiniciar com os valores atuais.")
+            self.composicao_ativa = False
+            self.indice_composicao = 0
+            self.imagem_composicao_atual = None
+            self._atualizar_status_composicao()
+            return
+
+        item_transformacao = self.sequencia_composicao[self.indice_composicao]
+        nome_transformacao = item_transformacao["nome"]
+        parametros = item_transformacao["parametros"]
+        self.imagem_composicao_atual = self._aplicar_transformacao_por_nome(
+            self.imagem_composicao_atual,
+            nome_transformacao,
+            parametros,
+        )
+        self.indice_composicao += 1
+        self._atualizar_status_composicao()
+
+        self._mostrar_imagem_transformacao(self.imagem_composicao_atual)
+
+        if self.indice_composicao >= len(self.sequencia_composicao):
+            messagebox.showinfo("Informação", "Transformação composta concluída.")
+            self.composicao_ativa = False
+            self._atualizar_status_composicao()
     
     def resetar_transformacoes(self):
         """Reseta todos os sliders para seus valores padrão"""
@@ -383,6 +822,20 @@ class ImageOperationGUI:
         self.cisalhox_valor.set(0)
         self.cisalhoy_valor.set(0)
         self.reflexao_valor.set("Nenhuma")
+        self.zoom_tipo_valor.set("Zoom in - Replicação")
+        self.zoom_fator_valor.set(1.0)
+        self._atualizar_limites_zoom()
+        self.modo_transformacao.set("individual")
+
+        if self.lista_transformacoes_compostas is not None:
+            self.lista_transformacoes_compostas.delete(0, tk.END)
+        self.fila_transformacoes_compostas = []
+
+        self.composicao_ativa = False
+        self.indice_composicao = 0
+        self.sequencia_composicao = []
+        self.imagem_composicao_atual = None
+        self._atualizar_estado_modo_transformacao()
         
         if self.transformador is not None:
             self.atualizar_transformacao()

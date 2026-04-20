@@ -85,9 +85,9 @@ class ImageTransformer:
         if eixo == 'nenhum':
             return self.imagem_preview
         if eixo == 'x':
-            self.imagem_preview = cv2.flip(self.imagem_preview, 0)
-        elif eixo == 'y':
             self.imagem_preview = cv2.flip(self.imagem_preview, 1)
+        elif eixo == 'y':
+            self.imagem_preview = cv2.flip(self.imagem_preview, 0)
         elif eixo == 'ambos':
             self.imagem_preview = cv2.flip(self.imagem_preview, -1)
             
@@ -108,6 +108,52 @@ class ImageTransformer:
         
         return self.imagem_preview
 
+
+    def zoom_in_replicacao(self, fator_zoom):
+        if fator_zoom <= 1.0:
+            return self.imagem_preview
+        
+        altura, largura = self.imagem_preview.shape[:2]
+
+        nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
+
+        self.imagem_preview = cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_NEAREST)
+
+        return self.imagem_preview
+        
+    def zoom_in_interpolacao(self, fator_zoom):
+        if fator_zoom <= 1.0:
+            return self.imagem_preview
+        
+        altura, largura = self.imagem_preview.shape[:2]
+
+        nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
+        self.imagem_preview = cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_LINEAR)
+
+        return self.imagem_preview
+    
+    def zoom_out_exclusao(self, fator_zoom):
+        if fator_zoom >= 1.0:
+            return self.imagem_preview
+        
+        altura, largura = self.imagem_preview.shape[:2]
+        nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
+
+        self.imagem_preview =cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_NEAREST)
+
+        return self.imagem_preview
+
+    def zoom_out_valor_medio(self, fator_zoom):
+        if fator_zoom >= 1.0:
+            return self.imagem_preview
+        
+        altura, largura = self.imagem_preview.shape[:2]
+        nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
+
+        self.imagem_preview =cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_AREA)
+
+        return self.imagem_preview
+        
 
 if __name__ == "__main__":
     janela = tk.Tk()
