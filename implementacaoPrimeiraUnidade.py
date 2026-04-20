@@ -155,6 +155,87 @@ class ImageTransformer:
         return self.imagem_preview
         
 
+class ColorSpaceDecomposer:
+    def __init__(self, image):
+        self.image = image.image
+
+    def _split_and_show(self, img, titles, prefix=""):
+        channels = cv2.split(img)
+        for i, channel in enumerate(channels):
+            if i < len(titles):
+                cv2.imshow(f"{prefix} - {titles[i]}", channel)
+
+    def decompose(self, color_space):
+        # opencv abre em bgr por padrão
+        img_bgr = self.image
+
+        if color_space == "RGB":
+            b, g, r = cv2.split(img_bgr)
+            cv2.imshow("RGB - R (Red)", r)
+            cv2.imshow("RGB - G (Green)", g)
+            cv2.imshow("RGB - B (Blue)", b)
+
+        elif color_space == "CMY":
+            # Normaliza para 0-1
+            bgr_norm = img_bgr.astype(np.float32) / 255.0
+            b, g, r = cv2.split(bgr_norm)
+            c = 1.0 - r
+            m = 1.0 - g
+            y = 1.0 - b
+
+            c_uint8 = (c * 255).astype(np.uint8)
+            m_uint8 = (m * 255).astype(np.uint8)
+            y_uint8 = (y * 255).astype(np.uint8)
+
+            cv2.imshow(f"CMY - C (Cyan)", c_uint8)
+            cv2.imshow(f"CMY - M (Magenta)", m_uint8)
+            cv2.imshow(f"CMY - Y (Yellow)", y_uint8)
+
+        elif color_space == "CMYK":
+            bgr_norm = img_bgr.astype(np.float32) / 255.0
+            b, g, r = cv2.split(bgr_norm)
+            c = 1.0 - r
+            m = 1.0 - g
+            y = 1.0 - b
+
+            k = np.minimum(np.minimum(c, m), y)
+
+            # evita divisão por zero
+            with np.errstate(divide="ignore", invalid="ignore"):
+                c_k = np.where(k == 1.0, 0, (c - k) / (1.0 - k))
+                m_k = np.where(k == 1.0, 0, (m - k) / (1.0 - k))
+                y_k = np.where(k == 1.0, 0, (y - k) / (1.0 - k))
+
+            c_uint8 = (c_k * 255).astype(np.uint8)
+            m_uint8 = (m_k * 255).astype(np.uint8)
+            y_uint8 = (y_k * 255).astype(np.uint8)
+            k_uint8 = (k * 255).astype(np.uint8)
+
+            cv2.imshow(f"CMYK - C", c_uint8)
+            cv2.imshow(f"CMYK - M", m_uint8)
+            cv2.imshow(f"CMYK - Y", y_uint8)
+            cv2.imshow(f"CMYK - K (Key/Black)", k_uint8)
+
+        elif color_space == "HSB":
+            hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+            self._split_and_show(
+                hsv, ["H (Hue)", "S (Saturation)", "B/V (Brightness/Value)"], "HSB"
+            )
+
+        elif color_space == "HSL":
+            hls = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HLS)
+            channels = cv2.split(hls)
+            cv2.imshow("HSL - H (Hue)", channels[0])
+            cv2.imshow("HSL - S (Saturation)", channels[2])
+            cv2.imshow("HSL - L (Lightness)", channels[1])
+
+        elif color_space == "YUV":
+            yuv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2YUV)
+            self._split_and_show(
+                yuv, ["Y (Luma)", "U (Chroma Blue)", "V (Chroma Red)"], "YUV"
+            )
+
+
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)

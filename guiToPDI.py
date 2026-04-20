@@ -83,7 +83,99 @@ class ImageOperationGUI:
         frame_transformacoes = ttk.Frame(notebook)
         notebook.add(frame_transformacoes, text="Transformações")
         self._criar_aba_transformacoes(frame_transformacoes)
-    
+
+        # Aba 3: Decomposição
+        frame_decomposicao = ttk.Frame(notebook)
+        notebook.add(frame_decomposicao, text="Decomposição")
+        self._criar_aba_decomposicao(frame_decomposicao)
+
+    def _criar_aba_decomposicao(self, parent):
+        """Cria a aba para decomposição de imagens em diferentes espaços de cores"""
+        tk.Label(
+            parent, text="Decomposição de Imagem", font=("Arial", 14, "bold")
+        ).pack(pady=15)
+
+        frame_selecao = tk.Frame(parent)
+        frame_selecao.pack(pady=10)
+
+        self.label_img_decomposicao = tk.Label(
+            frame_selecao,
+            text="Nenhuma imagem selecionada",
+            font=("Arial", 10),
+            foreground="red",
+        )
+        self.label_img_decomposicao.pack(side="left", padx=10)
+
+        tk.Button(
+            frame_selecao,
+            text="Selecionar Imagem",
+            command=self.selecionar_imagem_decomposicao,
+        ).pack(side="left", padx=10)
+
+        frame_opcoes = tk.Frame(parent)
+        frame_opcoes.pack(pady=20)
+
+        tk.Label(
+            frame_opcoes, text="Selecione o espaço de cores:", font=("Arial", 11)
+        ).pack(side="left", padx=10)
+
+        self.combo_espaco_cor = ttk.Combobox(
+            frame_opcoes,
+            values=["RGB", "CMY", "CMYK", "HSB", "HSL", "YUV"],
+            state="readonly",
+            width=10,
+        )
+        self.combo_espaco_cor.set("RGB")
+        self.combo_espaco_cor.pack(side="left", padx=10)
+
+        btn_decompor = tk.Button(
+            parent,
+            text="Decompor Imagem",
+            command=self.aplicar_decomposicao,
+            bg="#212F22",
+            fg="white",
+            font=("Arial", 11, "bold"),
+        )
+        btn_decompor.pack(pady=20)
+
+        self.imagem_para_decomposicao = None
+
+    def selecionar_imagem_decomposicao(self):
+        """Seleciona uma imagem para a aba de decomposição"""
+        from implementacaoPrimeiraUnidade import Image
+
+        caminho = filedialog.askopenfilename(
+            title="Selecione uma imagem",
+            filetypes=[
+                ("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+
+        if not caminho:
+            return
+
+        try:
+            self.imagem_para_decomposicao = Image(caminho)
+            self.label_img_decomposicao.config(
+                text=Path(caminho).name, foreground="green"
+            )
+            self.imagem_para_decomposicao.showImage()
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a imagem.\n{erro}")
+
+    def aplicar_decomposicao(self):
+        """Aplica a decomposição na imagem selecionada"""
+        from implementacaoPrimeiraUnidade import ColorSpaceDecomposer
+
+        if self.imagem_para_decomposicao is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+
+        espaco = self.combo_espaco_cor.get()
+        decompositor = ColorSpaceDecomposer(self.imagem_para_decomposicao)
+        decompositor.decompose(espaco)
+
     def _criar_aba_operacoes(self, parent):
         """Cria a aba de operações entre duas imagens"""
         tk.Label(parent, text="Escolha a operação:", font=("Arial", 11)).pack(pady=15)
