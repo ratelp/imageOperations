@@ -159,62 +159,54 @@ class ColorSpaceDecomposer:
     def __init__(self, image):
         self.image = image.image
 
-    def _split_and_show(self, img, titles, prefix=""):
-        channels = cv2.split(img)
-        for i, channel in enumerate(channels):
-            if i < len(titles):
-                cv2.imshow(f"{prefix} - {titles[i]}", channel)
-
     def decompose(self, color_space):
         # opencv abre em bgr por padrão
         img_bgr = self.image
+        altura, largura = img_bgr.shape[:2]
+        preto = np.zeros((altura, largura), dtype=np.uint8)
 
         if color_space == "RGB":
             b, g, r = cv2.split(img_bgr)
-            cv2.imshow("RGB - R (Red)", r)
-            cv2.imshow("RGB - G (Green)", g)
-            cv2.imshow("RGB - B (Blue)", b)
+            cv2.imshow("RGB - R (Red)", cv2.merge([preto, preto, r]))
+            cv2.imshow("RGB - G (Green)", cv2.merge([preto, g, preto]))
+            cv2.imshow("RGB - B (Blue)", cv2.merge([b, preto, preto]))
 
         elif color_space == "CMY":
-            # Normaliza para 0-1
             bgr_norm = img_bgr.astype(np.float32) / 255.0
             b, g, r = cv2.split(bgr_norm)
-            c = 1.0 - r
-            m = 1.0 - g
-            y = 1.0 - b
+            c, m, y = 1.0 - r, 1.0 - g, 1.0 - b
 
-            c_uint8 = (c * 255).astype(np.uint8)
-            m_uint8 = (m * 255).astype(np.uint8)
-            y_uint8 = (y * 255).astype(np.uint8)
+            # para mostrar CMY colorido, convertemos cada um de volta para BGR
+            # Cyan = G+B, Magenta = R+B, Yellow = R+G
+            c_img = cv2.merge(
+                [(c * 255).astype(np.uint8), (c * 255).astype(np.uint8), preto]
+            )
+            m_img = cv2.merge(
+                [(m * 255).astype(np.uint8), preto, (m * 255).astype(np.uint8)]
+            )
+            y_img = cv2.merge(
+                [preto, (y * 255).astype(np.uint8), (y * 255).astype(np.uint8)]
+            )
 
-            cv2.imshow(f"CMY - C (Cyan)", c_uint8)
-            cv2.imshow(f"CMY - M (Magenta)", m_uint8)
-            cv2.imshow(f"CMY - Y (Yellow)", y_uint8)
+            cv2.imshow("CMY - C (Cyan)", c_img)
+            cv2.imshow("CMY - M (Magenta)", m_img)
+            cv2.imshow("CMY - Y (Yellow)", y_img)
 
         elif color_space == "CMYK":
             bgr_norm = img_bgr.astype(np.float32) / 255.0
             b, g, r = cv2.split(bgr_norm)
-            c = 1.0 - r
-            m = 1.0 - g
-            y = 1.0 - b
-
+            c, m, y = 1.0 - r, 1.0 - g, 1.0 - b
             k = np.minimum(np.minimum(c, m), y)
 
-            # evita divisão por zero
-            with np.errstate(divide="ignore", invalid="ignore"):
-                c_k = np.where(k == 1.0, 0, (c - k) / (1.0 - k))
-                m_k = np.where(k == 1.0, 0, (m - k) / (1.0 - k))
-                y_k = np.where(k == 1.0, 0, (y - k) / (1.0 - k))
+            c_k = (np.where(k == 1.0, 0, (c - k) / (1.0 - k)) * 255).astype(np.uint8)
+            m_k = (np.where(k == 1.0, 0, (m - k) / (1.0 - k)) * 255).astype(np.uint8)
+            y_k = (np.where(k == 1.0, 0, (y - k) / (1.0 - k)) * 255).astype(np.uint8)
+            k_img = (k * 255).astype(np.uint8)
 
-            c_uint8 = (c_k * 255).astype(np.uint8)
-            m_uint8 = (m_k * 255).astype(np.uint8)
-            y_uint8 = (y_k * 255).astype(np.uint8)
-            k_uint8 = (k * 255).astype(np.uint8)
-
-            cv2.imshow(f"CMYK - C", c_uint8)
-            cv2.imshow(f"CMYK - M", m_uint8)
-            cv2.imshow(f"CMYK - Y", y_uint8)
-            cv2.imshow(f"CMYK - K (Key/Black)", k_uint8)
+            cv2.imshow("CMYK - C", cv2.merge([c_k, c_k, preto]))
+            cv2.imshow("CMYK - M", cv2.merge([m_k, preto, m_k]))
+            cv2.imshow("CMYK - Y", cv2.merge([preto, y_k, y_k]))
+            cv2.imshow("CMYK - K (Black)", k_img)
 
         elif color_space == "HSB":
             hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
@@ -231,9 +223,21 @@ class ColorSpaceDecomposer:
 
         elif color_space == "YUV":
             yuv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2YUV)
-            self._split_and_show(
-                yuv, ["Y (Luma)", "U (Chroma Blue)", "V (Chroma Red)"], "YUV"
+            y, u, v = cv2.split(yuv)
+
+            # para mostrar yuv, mantemos o canal desejado e neutralizamos os outros para o valor médio (128)
+            u_color = cv2.cvtColor(
+                cv2.merge([np.full_like(y, 128), u, np.full_like(v, 128)]),
+                cv2.COLOR_YUV2BGR,
             )
+            v_color = cv2.cvtColor(
+                cv2.merge([np.full_like(y, 128), np.full_like(u, 128), v]),
+                cv2.COLOR_YUV2BGR,
+            )
+
+            cv2.imshow("YUV - Y (Luma)", y)
+            cv2.imshow("YUV - U (Chroma Blue)", u_color)
+            cv2.imshow("YUV - V (Chroma Red)", v_color)
 
 
 if __name__ == "__main__":
