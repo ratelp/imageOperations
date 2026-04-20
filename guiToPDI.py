@@ -11,8 +11,8 @@ class ImageOperationGUI:
         self.root = root
         self.root.title("Painel de Operações e Transformações")
         self.root.geometry("600x700")
-        self.root.eval('tk::PlaceWindow . center')
-        
+        self.root.eval("tk::PlaceWindow . center")
+
         self.dicionario_operacoes = {
             "Soma": operator.add,
             "Subtração": operator.sub,
@@ -20,9 +20,9 @@ class ImageOperationGUI:
             "Divisão": operator.truediv,
             "AND": operator.and_,
             "OR": operator.or_,
-            "XOR": operator.xor
+            "XOR": operator.xor,
         }
-        
+
         self.imagem1 = None
         self.imagem2 = None
         self.imagem_transformacao = None
@@ -43,7 +43,9 @@ class ImageOperationGUI:
             "Zoom out - Exclusão",
             "Zoom out - Valor médio",
         ]
-        self.transformacao_para_adicionar = tk.StringVar(value=self.opcoes_transformacoes_compostas[0])
+        self.transformacao_para_adicionar = tk.StringVar(
+            value=self.opcoes_transformacoes_compostas[0]
+        )
         self.fila_transformacoes_compostas = []
         self.sequencia_composicao = []
         self.indice_composicao = 0
@@ -52,7 +54,7 @@ class ImageOperationGUI:
         self.botao_proxima_transformacao = None
         self.lista_transformacoes_compostas = None
         self.label_status_composicao = None
-        
+
         # Variáveis para os parâmetros de transformação
         self.rotacao_valor = tk.DoubleVar(value=0)
         self.transladx_valor = tk.DoubleVar(value=0)
@@ -65,20 +67,20 @@ class ImageOperationGUI:
         self.zoom_tipo_valor = tk.StringVar(value="Zoom in - Replicação")
         self.zoom_fator_valor = tk.DoubleVar(value=1.0)
         self.slider_zoom_fator = None
-        
+
         self._criar_widgets()
-    
+
     def _criar_widgets(self):
         """Cria todos os widgets da interface com abas"""
         # Notebook (abas)
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
+
         # Aba 1: Operações entre imagens
         frame_operacoes = ttk.Frame(notebook)
         notebook.add(frame_operacoes, text="Operações entre Imagens")
         self._criar_aba_operacoes(frame_operacoes)
-        
+
         # Aba 2: Transformações
         frame_transformacoes = ttk.Frame(notebook)
         notebook.add(frame_transformacoes, text="Transformações")
@@ -181,54 +183,77 @@ class ImageOperationGUI:
         decompositor = ColorSpaceDecomposer(self.imagem_para_decomposicao)
         decompositor.decompose(espaco)
 
-
     def _criar_aba_pseudocolorizacao(self, parent):
-        tk.Label(parent, text="Pseudocolorização", font=("Arial", 14, "bold")).pack(pady=15)
-        
+        tk.Label(parent, text="Pseudocolorização", font=("Arial", 14, "bold")).pack(
+            pady=15
+        )
+
         # Modo de operação
         frame_modo = tk.Frame(parent)
         frame_modo.pack(pady=5)
         self.modo_pseudo = tk.StringVar(value="fatiamento_densidade")
-        tk.Radiobutton(frame_modo, text="Fatiamento por Densidade", variable=self.modo_pseudo, value="fatiamento_densidade", command=self._atualizar_aba_pseudo).pack(side="left", padx=10)
-        tk.Radiobutton(frame_modo, text="Redistribuição de Cores (Mapa de Cores)", variable=self.modo_pseudo, value="redistribuicao", command=self._atualizar_aba_pseudo).pack(side="left", padx=10)
+        tk.Radiobutton(
+            frame_modo,
+            text="Fatiamento por Densidade",
+            variable=self.modo_pseudo,
+            value="fatiamento_densidade",
+            command=self._atualizar_aba_pseudo,
+        ).pack(side="left", padx=10)
+        tk.Radiobutton(
+            frame_modo,
+            text="Redistribuição de Cores (Mapa de Cores)",
+            variable=self.modo_pseudo,
+            value="redistribuicao",
+            command=self._atualizar_aba_pseudo,
+        ).pack(side="left", padx=10)
 
         # Seleção de Imagem
         frame_selecao = tk.Frame(parent)
         frame_selecao.pack(pady=10)
-        self.label_img_pseudo = tk.Label(frame_selecao, text="Nenhuma imagem selecionada", font=("Arial", 10), foreground="red")
+        self.label_img_pseudo = tk.Label(
+            frame_selecao,
+            text="Nenhuma imagem selecionada",
+            font=("Arial", 10),
+            foreground="red",
+        )
         self.label_img_pseudo.pack(side="left", padx=10)
-        tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_pseudocolorizacao).pack(side="left", padx=10)
-        
+        tk.Button(
+            frame_selecao,
+            text="Selecionar Imagem",
+            command=self.selecionar_imagem_pseudocolorizacao,
+        ).pack(side="left", padx=10)
+
         # Frame Fatiamento
         self.frame_fatiamento = tk.Frame(parent)
-        frame_intervalo = tk.LabelFrame(self.frame_fatiamento, text="Intervalo de Intensidade (Fatiamento por Densidade)", padx=10, pady=10)
-        frame_intervalo.pack(pady=5, padx=20, fill="x")
-        
-        self.pseudo_min_val = tk.IntVar(value=0)
-        self.pseudo_max_val = tk.IntVar(value=60)
-        
-        tk.Label(frame_intervalo, text="Mínimo (0-255):").pack(side="left", padx=5)
-        tk.Entry(frame_intervalo, textvariable=self.pseudo_min_val, width=5).pack(side="left", padx=5)
-        tk.Label(frame_intervalo, text="Máximo (0-255):").pack(side="left", padx=5)
-        tk.Entry(frame_intervalo, textvariable=self.pseudo_max_val, width=5).pack(side="left", padx=5)
-        
-        frame_cor = tk.LabelFrame(self.frame_fatiamento, text="Cor de Destaque (RGB)", padx=10, pady=10)
-        frame_cor.pack(pady=5, padx=20, fill="x")
-        
-        self.pseudo_r_val = tk.IntVar(value=160)
-        self.pseudo_g_val = tk.IntVar(value=57)
-        self.pseudo_b_val = tk.IntVar(value=0)
-        
-        tk.Label(frame_cor, text="R:").pack(side="left", padx=5)
-        tk.Entry(frame_cor, textvariable=self.pseudo_r_val, width=5).pack(side="left", padx=5)
-        tk.Label(frame_cor, text="G:").pack(side="left", padx=5)
-        tk.Entry(frame_cor, textvariable=self.pseudo_g_val, width=5).pack(side="left", padx=5)
-        tk.Label(frame_cor, text="B:").pack(side="left", padx=5)
-        tk.Entry(frame_cor, textvariable=self.pseudo_b_val, width=5).pack(side="left", padx=5)
+
+        self.frame_intervalos = tk.Frame(self.frame_fatiamento)
+        self.frame_intervalos.pack(pady=5, padx=20, fill="x")
+
+        self.fatiamento_intervals = []
+        self._adicionar_intervalo_fatiamento(
+            default_min=0, default_max=60, default_r=160, default_g=57, default_b=0
+        )
+        self._adicionar_intervalo_fatiamento(
+            default_min=61, default_max=120, default_r=57, default_g=160, default_b=0
+        )
+        self._adicionar_intervalo_fatiamento(
+            default_min=121, default_max=180, default_r=0, default_g=57, default_b=160
+        )
+
+        tk.Button(
+            self.frame_fatiamento,
+            text="+ Adicionar Intervalo",
+            command=self._adicionar_intervalo_fatiamento,
+        ).pack(pady=5)
 
         # Frame Redistribuição (Mapa de Cores)
         self.frame_redistribuicao = tk.Frame(parent)
-        frame_mapa = tk.LabelFrame(self.frame_redistribuicao, text="Redistribuição (Mapa de Cores)", padx=10, pady=10)
+        frame_mapa = tk.LabelFrame(
+            self.frame_redistribuicao,
+            text="Redistribuição (Mapa de Cores)",
+            padx=10,
+            pady=10,
+        )
         frame_mapa.pack(pady=15, padx=20, fill="x")
 
         self.dicionario_colormaps = {
@@ -242,19 +267,31 @@ class ImageOperationGUI:
             "WINTER": cv2.COLORMAP_WINTER,
             "AUTUMN": cv2.COLORMAP_AUTUMN,
             "SUMMER": cv2.COLORMAP_SUMMER,
-            "VIRIDIS": cv2.COLORMAP_VIRIDIS
+            "VIRIDIS": cv2.COLORMAP_VIRIDIS,
         }
-        
+
         tk.Label(frame_mapa, text="Selecione o Mapa:").pack(side="left", padx=5)
-        self.combo_colormap = ttk.Combobox(frame_mapa, values=list(self.dicionario_colormaps.keys()), state="readonly", width=15)
+        self.combo_colormap = ttk.Combobox(
+            frame_mapa,
+            values=list(self.dicionario_colormaps.keys()),
+            state="readonly",
+            width=15,
+        )
         self.combo_colormap.set("JET")
         self.combo_colormap.pack(side="left", padx=5)
 
         self._atualizar_aba_pseudo()
 
-        btn_aplicar = tk.Button(parent, text="Aplicar Pseudocolorização", command=self.aplicar_pseudocolorizacao, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
+        btn_aplicar = tk.Button(
+            parent,
+            text="Aplicar Pseudocolorização",
+            command=self.aplicar_pseudocolorizacao,
+            bg="#212F22",
+            fg="white",
+            font=("Arial", 11, "bold"),
+        )
         btn_aplicar.pack(pady=20)
-        
+
         self.imagem_para_pseudo = None
 
     def _atualizar_aba_pseudo(self):
@@ -266,11 +303,64 @@ class ImageOperationGUI:
             self.frame_fatiamento.pack_forget()
             self.frame_redistribuicao.pack(fill="x", expand=True)
 
+    def _adicionar_intervalo_fatiamento(
+        self, default_min=0, default_max=255, default_r=255, default_g=0, default_b=0
+    ):
+        row_frame = tk.LabelFrame(
+            self.frame_intervalos, text="Intervalo e Cor de Destaque", padx=5, pady=5
+        )
+        row_frame.pack(pady=5, fill="x")
+
+        min_val = tk.IntVar(value=default_min)
+        max_val = tk.IntVar(value=default_max)
+        r_val = tk.IntVar(value=default_r)
+        g_val = tk.IntVar(value=default_g)
+        b_val = tk.IntVar(value=default_b)
+
+        tk.Label(row_frame, text="Mín:").pack(side="left")
+        tk.Entry(row_frame, textvariable=min_val, width=4).pack(side="left", padx=2)
+        tk.Label(row_frame, text="Máx:").pack(side="left")
+        tk.Entry(row_frame, textvariable=max_val, width=4).pack(side="left", padx=2)
+
+        tk.Label(row_frame, text="  R:").pack(side="left")
+        tk.Entry(row_frame, textvariable=r_val, width=4).pack(side="left", padx=2)
+        tk.Label(row_frame, text="G:").pack(side="left")
+        tk.Entry(row_frame, textvariable=g_val, width=4).pack(side="left", padx=2)
+        tk.Label(row_frame, text="B:").pack(side="left")
+        tk.Entry(row_frame, textvariable=b_val, width=4).pack(side="left", padx=2)
+
+        interval_data = {
+            "frame": row_frame,
+            "min": min_val,
+            "max": max_val,
+            "r": r_val,
+            "g": g_val,
+            "b": b_val,
+        }
+        self.fatiamento_intervals.append(interval_data)
+
+        tk.Button(
+            row_frame,
+            text="Remover",
+            command=lambda: self._remover_intervalo_fatiamento(interval_data),
+        ).pack(side="right", padx=5)
+
+    def _remover_intervalo_fatiamento(self, interval_data):
+        if len(self.fatiamento_intervals) > 1:
+            interval_data["frame"].destroy()
+            self.fatiamento_intervals.remove(interval_data)
+        else:
+            messagebox.showwarning("Aviso", "Você deve manter pelo menos um intervalo.")
+
     def selecionar_imagem_pseudocolorizacao(self):
         from implementacaoPrimeiraUnidade import Image
+
         caminho = filedialog.askopenfilename(
             title="Selecione uma imagem",
-            filetypes=[("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"), ("Todos os arquivos", "*.*")]
+            filetypes=[
+                ("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"),
+                ("Todos os arquivos", "*.*"),
+            ],
         )
         if not caminho:
             return
@@ -283,71 +373,112 @@ class ImageOperationGUI:
 
     def aplicar_pseudocolorizacao(self):
         from implementacaoPrimeiraUnidade import PseudoColorizer
+
         if self.imagem_para_pseudo is None:
             messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
             return
-            
+
         try:
             colorizer = PseudoColorizer(self.imagem_para_pseudo)
             modo = self.modo_pseudo.get()
-            
+
             if modo == "fatiamento_densidade":
-                min_val = self.pseudo_min_val.get()
-                max_val = self.pseudo_max_val.get()
-                r_val = self.pseudo_r_val.get()
-                g_val = self.pseudo_g_val.get()
-                b_val = self.pseudo_b_val.get()
-                
-                color_bgr = (b_val, g_val, r_val)
-                result_img = colorizer.apply_slicing(min_val, max_val, color_bgr)
+                intervalos = []
+                for data in self.fatiamento_intervals:
+                    min_v = data["min"].get()
+                    max_v = data["max"].get()
+                    r_v = data["r"].get()
+                    g_v = data["g"].get()
+                    b_v = data["b"].get()
+                    intervalos.append((min_v, max_v, (b_v, g_v, r_v)))
+
+                result_img = colorizer.apply_slicing(intervalos)
                 cv2.imshow("Pseudocolorização - Fatiamento por Densidade", result_img)
-                
+
             elif modo == "redistribuicao":
                 nome_colormap = self.combo_colormap.get()
-                id_colormap = self.dicionario_colormaps.get(nome_colormap, cv2.COLORMAP_JET)
-                
+                id_colormap = self.dicionario_colormaps.get(
+                    nome_colormap, cv2.COLORMAP_JET
+                )
+
                 result_img = colorizer.apply_redistribution(id_colormap)
-                cv2.imshow(f"Pseudocolorização - Redistribuição ({nome_colormap})", result_img)
-                
+                cv2.imshow(
+                    f"Pseudocolorização - Redistribuição ({nome_colormap})", result_img
+                )
+
         except Exception as e:
             messagebox.showerror("Erro", f"Ocorreu um erro ao aplicar.\n{e}")
 
     def _criar_aba_operacoes(self, parent):
         """Cria a aba de operações entre duas imagens"""
         tk.Label(parent, text="Escolha a operação:", font=("Arial", 11)).pack(pady=15)
-        
-        self.label_img1 = tk.Label(parent, text="Imagem 1: nao selecionada", font=("Arial", 9))
+
+        self.label_img1 = tk.Label(
+            parent, text="Imagem 1: nao selecionada", font=("Arial", 9)
+        )
         self.label_img1.pack()
-        
-        self.label_img2 = tk.Label(parent, text="Imagem 2: nao selecionada", font=("Arial", 9))
+
+        self.label_img2 = tk.Label(
+            parent, text="Imagem 2: nao selecionada", font=("Arial", 9)
+        )
         self.label_img2.pack(pady=(0, 8))
-        
+
         frame_botoes = tk.Frame(parent)
         frame_botoes.pack(pady=(0, 8))
-        
-        tk.Button(frame_botoes, text="Selecionar Imagem 1", command=lambda: self.selecionar_imagem(1)).pack(side="left", padx=6)
-        tk.Button(frame_botoes, text="Selecionar Imagem 2", command=lambda: self.selecionar_imagem(2)).pack(side="left", padx=6)
-        
-        self.combo_operacoes = ttk.Combobox(parent, values=list(self.dicionario_operacoes.keys()), state="readonly", width=20)
+
+        tk.Button(
+            frame_botoes,
+            text="Selecionar Imagem 1",
+            command=lambda: self.selecionar_imagem(1),
+        ).pack(side="left", padx=6)
+        tk.Button(
+            frame_botoes,
+            text="Selecionar Imagem 2",
+            command=lambda: self.selecionar_imagem(2),
+        ).pack(side="left", padx=6)
+
+        self.combo_operacoes = ttk.Combobox(
+            parent,
+            values=list(self.dicionario_operacoes.keys()),
+            state="readonly",
+            width=20,
+        )
         self.combo_operacoes.set("Selecione...")
         self.combo_operacoes.pack(pady=5)
-        
-        btn_executar = tk.Button(parent, text="Gerar Resultado", command=self.aplicar_operacao, bg="#212F22", fg="white", font=("Arial", 10, "bold"))
+
+        btn_executar = tk.Button(
+            parent,
+            text="Gerar Resultado",
+            command=self.aplicar_operacao,
+            bg="#212F22",
+            fg="white",
+            font=("Arial", 10, "bold"),
+        )
         btn_executar.pack(pady=15)
-    
+
     def _criar_aba_transformacoes(self, parent):
         """Cria a aba de transformações com sliders"""
         # Seleção de imagem para transformação
         frame_selecao = tk.Frame(parent)
         frame_selecao.pack(pady=10)
-        
-        tk.Label(frame_selecao, text="Imagem para transformar:", font=("Arial", 10)).pack(side="left", padx=5)
-        self.label_img_transform = tk.Label(frame_selecao, text="nao selecionada", font=("Arial", 9), foreground="red")
-        self.label_img_transform.pack(side="left", padx=5)
-        
-        tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_transformacao).pack(side="left", padx=5)
 
-        frame_modo = tk.LabelFrame(parent, text="Modo de transformação", padx=10, pady=8)
+        tk.Label(
+            frame_selecao, text="Imagem para transformar:", font=("Arial", 10)
+        ).pack(side="left", padx=5)
+        self.label_img_transform = tk.Label(
+            frame_selecao, text="nao selecionada", font=("Arial", 9), foreground="red"
+        )
+        self.label_img_transform.pack(side="left", padx=5)
+
+        tk.Button(
+            frame_selecao,
+            text="Selecionar Imagem",
+            command=self.selecionar_imagem_transformacao,
+        ).pack(side="left", padx=5)
+
+        frame_modo = tk.LabelFrame(
+            parent, text="Modo de transformação", padx=10, pady=8
+        )
         frame_modo.pack(fill="x", padx=10, pady=(0, 10))
 
         tk.Radiobutton(
@@ -365,7 +496,9 @@ class ImageOperationGUI:
             command=self._atualizar_estado_modo_transformacao,
         ).pack(side="left", padx=5)
 
-        frame_composta = tk.LabelFrame(parent, text="Transformações da composição", padx=10, pady=8)
+        frame_composta = tk.LabelFrame(
+            parent, text="Transformações da composição", padx=10, pady=8
+        )
         frame_composta.pack(fill="x", padx=10, pady=(0, 10))
 
         tk.Label(
@@ -417,32 +550,47 @@ class ImageOperationGUI:
             justify="left",
         )
         self.label_status_composicao.pack(fill="x", pady=(6, 0))
-        
+
         # Frame com scrollbar para os sliders
         canvas = tk.Canvas(parent)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         scrollable_frame = tk.Frame(canvas)
-        
+
         scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
-        
+
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-        
+
         # Adicionar sliders
-        self._adicionar_slider(scrollable_frame, "Rotação", self.rotacao_valor, 0, 360, 1)
-        self._adicionar_slider(scrollable_frame, "Translação X", self.transladx_valor, -100, 100, 1)
-        self._adicionar_slider(scrollable_frame, "Translação Y", self.translady_valor, -100, 100, 1)
-        self._adicionar_slider(scrollable_frame, "Escala X", self.escalax_valor, 0.5, 2.0, 0.1)
-        self._adicionar_slider(scrollable_frame, "Escala Y", self.escalay_valor, 0.5, 2.0, 0.1)
-        self._adicionar_slider(scrollable_frame, "Cisalhamento X", self.cisalhox_valor, -0.5, 0.5, 0.05)
-        self._adicionar_slider(scrollable_frame, "Cisalhamento Y", self.cisalhoy_valor, -0.5, 0.5, 0.05)
+        self._adicionar_slider(
+            scrollable_frame, "Rotação", self.rotacao_valor, 0, 360, 1
+        )
+        self._adicionar_slider(
+            scrollable_frame, "Translação X", self.transladx_valor, -100, 100, 1
+        )
+        self._adicionar_slider(
+            scrollable_frame, "Translação Y", self.translady_valor, -100, 100, 1
+        )
+        self._adicionar_slider(
+            scrollable_frame, "Escala X", self.escalax_valor, 0.5, 2.0, 0.1
+        )
+        self._adicionar_slider(
+            scrollable_frame, "Escala Y", self.escalay_valor, 0.5, 2.0, 0.1
+        )
+        self._adicionar_slider(
+            scrollable_frame, "Cisalhamento X", self.cisalhox_valor, -0.5, 0.5, 0.05
+        )
+        self._adicionar_slider(
+            scrollable_frame, "Cisalhamento Y", self.cisalhoy_valor, -0.5, 0.5, 0.05
+        )
 
         frame_reflexao = tk.Frame(scrollable_frame)
         frame_reflexao.pack(fill="x", padx=10, pady=5)
-        tk.Label(frame_reflexao, text="Reflexão", width=15, font=("Arial", 9)).pack(side="left")
+        tk.Label(frame_reflexao, text="Reflexão", width=15, font=("Arial", 9)).pack(
+            side="left"
+        )
         combo_reflexao = ttk.Combobox(
             frame_reflexao,
             values=["Nenhuma", "Eixo X", "Eixo Y", "Ambos"],
@@ -451,14 +599,18 @@ class ImageOperationGUI:
             textvariable=self.reflexao_valor,
         )
         combo_reflexao.pack(side="left", padx=5)
-        combo_reflexao.bind("<<ComboboxSelected>>", lambda _event: self.atualizar_transformacao())
+        combo_reflexao.bind(
+            "<<ComboboxSelected>>", lambda _event: self.atualizar_transformacao()
+        )
 
         frame_zoom = tk.LabelFrame(scrollable_frame, text="Zoom", padx=10, pady=8)
         frame_zoom.pack(fill="x", padx=10, pady=5)
 
         linha_zoom_tipo = tk.Frame(frame_zoom)
         linha_zoom_tipo.pack(fill="x", pady=(0, 6))
-        tk.Label(linha_zoom_tipo, text="Tipo", width=15, font=("Arial", 9)).pack(side="left")
+        tk.Label(linha_zoom_tipo, text="Tipo", width=15, font=("Arial", 9)).pack(
+            side="left"
+        )
         combo_zoom = ttk.Combobox(
             linha_zoom_tipo,
             values=[
@@ -474,16 +626,24 @@ class ImageOperationGUI:
         combo_zoom.pack(side="left", padx=5)
         combo_zoom.bind("<<ComboboxSelected>>", self._ao_mudar_tipo_zoom)
 
-        self.slider_zoom_fator = self._adicionar_slider(frame_zoom, "Fator Zoom", self.zoom_fator_valor, 1.0, 4.0, 0.1)
-        
+        self.slider_zoom_fator = self._adicionar_slider(
+            frame_zoom, "Fator Zoom", self.zoom_fator_valor, 1.0, 4.0, 0.1
+        )
+
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        
+
         # Botões de controle
         frame_botoes = tk.Frame(parent)
         frame_botoes.pack(pady=10)
-        
-        tk.Button(frame_botoes, text="Resetar", command=self.resetar_transformacoes, bg="#FF6B6B", fg="white").pack(side="left", padx=5)
+
+        tk.Button(
+            frame_botoes,
+            text="Resetar",
+            command=self.resetar_transformacoes,
+            bg="#FF6B6B",
+            fg="white",
+        ).pack(side="left", padx=5)
         self.botao_proxima_transformacao = tk.Button(
             frame_botoes,
             text="Próxima",
@@ -512,31 +672,45 @@ class ImageOperationGUI:
         self.imagem_composicao_atual = None
         self._atualizar_status_composicao()
 
-        if self.modo_transformacao.get() == "composta" and self.imagem_transformacao is not None:
+        if (
+            self.modo_transformacao.get() == "composta"
+            and self.imagem_transformacao is not None
+        ):
             imagem_base = self._criar_canvas_base_transformacao()
             self._mostrar_imagem_transformacao(imagem_base)
 
-        if self.modo_transformacao.get() == "individual" and self.imagem_transformacao is not None:
+        if (
+            self.modo_transformacao.get() == "individual"
+            and self.imagem_transformacao is not None
+        ):
             self.atualizar_transformacao()
-    
+
     def _adicionar_slider(self, parent, label_text, var, from_val, to_val, resolution):
         """Adiciona um slider com rótulo e valor"""
         frame = tk.Frame(parent)
         frame.pack(fill="x", padx=10, pady=5)
-        
+
         tk.Label(frame, text=label_text, width=15, font=("Arial", 9)).pack(side="left")
-        
-        slider = ttk.Scale(frame, from_=from_val, to=to_val, orient="horizontal", 
-                          variable=var, command=lambda _: self.atualizar_transformacao())
+
+        slider = ttk.Scale(
+            frame,
+            from_=from_val,
+            to=to_val,
+            orient="horizontal",
+            variable=var,
+            command=lambda _: self.atualizar_transformacao(),
+        )
         slider.pack(side="left", fill="x", expand=True, padx=5)
-        
-        valor_label = tk.Label(frame, text=f"{var.get():.2f}", width=8, font=("Arial", 9))
+
+        valor_label = tk.Label(
+            frame, text=f"{var.get():.2f}", width=8, font=("Arial", 9)
+        )
         valor_label.pack(side="left", padx=5)
-        
+
         # Atualizar o rótulo do valor quando o slider muda
         def atualizar_label(*args):
             valor_label.config(text=f"{var.get():.2f}")
-        
+
         var.trace("w", atualizar_label)
         return slider
 
@@ -556,26 +730,31 @@ class ImageOperationGUI:
         if self.slider_zoom_fator is not None:
             self.slider_zoom_fator.configure(from_=minimo, to=maximo)
 
-        fator_atual = self._normalizar_fator_zoom(tipo_zoom, self.zoom_fator_valor.get())
+        fator_atual = self._normalizar_fator_zoom(
+            tipo_zoom, self.zoom_fator_valor.get()
+        )
         if fator_atual != self.zoom_fator_valor.get():
             self.zoom_fator_valor.set(fator_atual)
 
     def _ao_mudar_tipo_zoom(self, _event=None):
         self._atualizar_limites_zoom()
         self.atualizar_transformacao()
-    
+
     def selecionar_imagem_transformacao(self):
         """Seleciona uma imagem para transformação"""
         from implementacaoPrimeiraUnidade import Image, ImageTransformer
-        
+
         caminho = filedialog.askopenfilename(
             title="Selecione uma imagem",
-            filetypes=[("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"), ("Todos os arquivos", "*.*")]
+            filetypes=[
+                ("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"),
+                ("Todos os arquivos", "*.*"),
+            ],
         )
-        
+
         if not caminho:
             return
-        
+
         try:
             cv2.destroyWindow(self.nome_janela_transformacao)
         except cv2.error:
@@ -627,10 +806,12 @@ class ImageOperationGUI:
             return imagem
 
         altura, largura = imagem.shape[:2]
-        matriz = np.float32([
-            [1, 0, int(deslocamento_x)],
-            [0, 1, int(deslocamento_y)],
-        ])
+        matriz = np.float32(
+            [
+                [1, 0, int(deslocamento_x)],
+                [0, 1, int(deslocamento_y)],
+            ]
+        )
         return cv2.warpAffine(
             imagem,
             matriz,
@@ -650,10 +831,12 @@ class ImageOperationGUI:
         altura, largura = imagem.shape[:2]
         centro_x = largura / 2.0
         centro_y = altura / 2.0
-        matriz = np.float32([
-            [fator_x, 0, centro_x * (1 - fator_x)],
-            [0, fator_y, centro_y * (1 - fator_y)],
-        ])
+        matriz = np.float32(
+            [
+                [fator_x, 0, centro_x * (1 - fator_x)],
+                [0, fator_y, centro_y * (1 - fator_y)],
+            ]
+        )
         return cv2.warpAffine(
             imagem,
             matriz,
@@ -670,10 +853,12 @@ class ImageOperationGUI:
         altura, largura = imagem.shape[:2]
         centro_x = largura / 2.0
         centro_y = altura / 2.0
-        matriz = np.float32([
-            [1, fator_x, -fator_x * centro_y],
-            [fator_y, 1, -fator_y * centro_x],
-        ])
+        matriz = np.float32(
+            [
+                [1, fator_x, -fator_x * centro_y],
+                [fator_y, 1, -fator_y * centro_x],
+            ]
+        )
         return cv2.warpAffine(
             imagem,
             matriz,
@@ -736,7 +921,9 @@ class ImageOperationGUI:
             "Zoom out - Exclusão",
             "Zoom out - Valor médio",
         }:
-            fator = self._normalizar_fator_zoom(nome_transformacao, self.zoom_fator_valor.get())
+            fator = self._normalizar_fator_zoom(
+                nome_transformacao, self.zoom_fator_valor.get()
+            )
             return {
                 "tipo_zoom": nome_transformacao,
                 "fator_zoom": fator,
@@ -749,7 +936,9 @@ class ImageOperationGUI:
         if nome_transformacao == "Translação":
             return f"Translação (x={parametros['deslocamento_x']:.2f}, y={parametros['deslocamento_y']:.2f})"
         if nome_transformacao == "Escala":
-            return f"Escala (x={parametros['fator_x']:.2f}, y={parametros['fator_y']:.2f})"
+            return (
+                f"Escala (x={parametros['fator_x']:.2f}, y={parametros['fator_y']:.2f})"
+            )
         if nome_transformacao == "Cisalhamento":
             return f"Cisalhamento (x={parametros['fator_x']:.2f}, y={parametros['fator_y']:.2f})"
         if nome_transformacao == "Reflexão":
@@ -773,7 +962,9 @@ class ImageOperationGUI:
             return
 
         if self.composicao_ativa:
-            self.label_status_composicao.config(text=f"Executando passo {self.indice_composicao + 1} de {len(self.sequencia_composicao)}.")
+            self.label_status_composicao.config(
+                text=f"Executando passo {self.indice_composicao + 1} de {len(self.sequencia_composicao)}."
+            )
             return
 
         self.label_status_composicao.config(text=f"{total} transformação(ões) na fila.")
@@ -781,7 +972,9 @@ class ImageOperationGUI:
     def adicionar_transformacao_composta(self):
         nome_transformacao = self.transformacao_para_adicionar.get()
         if nome_transformacao not in self.opcoes_transformacoes_compostas:
-            messagebox.showwarning("Aviso", "Selecione uma transformação válida para adicionar.")
+            messagebox.showwarning(
+                "Aviso", "Selecione uma transformação válida para adicionar."
+            )
             return
 
         parametros = self._capturar_parametros_transformacao(nome_transformacao)
@@ -791,8 +984,12 @@ class ImageOperationGUI:
         }
         self.fila_transformacoes_compostas.append(item)
 
-        descricao = self._formatar_transformacao_composta(nome_transformacao, parametros)
-        self.lista_transformacoes_compostas.insert(tk.END, f"{len(self.fila_transformacoes_compostas)}. {descricao}")
+        descricao = self._formatar_transformacao_composta(
+            nome_transformacao, parametros
+        )
+        self.lista_transformacoes_compostas.insert(
+            tk.END, f"{len(self.fila_transformacoes_compostas)}. {descricao}"
+        )
 
         self.composicao_ativa = False
         self.indice_composicao = 0
@@ -806,7 +1003,9 @@ class ImageOperationGUI:
 
         selecao = self.lista_transformacoes_compostas.curselection()
         if not selecao:
-            messagebox.showwarning("Aviso", "Selecione uma transformação da fila para remover.")
+            messagebox.showwarning(
+                "Aviso", "Selecione uma transformação da fila para remover."
+            )
             return
 
         indice = selecao[0]
@@ -831,7 +1030,9 @@ class ImageOperationGUI:
 
         self.lista_transformacoes_compostas.delete(0, tk.END)
         for indice, item in enumerate(self.fila_transformacoes_compostas, start=1):
-            descricao = self._formatar_transformacao_composta(item["nome"], item["parametros"])
+            descricao = self._formatar_transformacao_composta(
+                item["nome"], item["parametros"]
+            )
             self.lista_transformacoes_compostas.insert(tk.END, f"{indice}. {descricao}")
 
         self.composicao_ativa = False
@@ -840,11 +1041,15 @@ class ImageOperationGUI:
         self.imagem_composicao_atual = None
         self._atualizar_status_composicao()
 
-    def _aplicar_transformacao_por_nome(self, imagem, nome_transformacao, parametros=None):
+    def _aplicar_transformacao_por_nome(
+        self, imagem, nome_transformacao, parametros=None
+    ):
         parametros = {} if parametros is None else parametros
 
         if nome_transformacao == "Rotação":
-            return self._aplicar_rotacao(imagem, parametros.get("angulo", self.rotacao_valor.get()))
+            return self._aplicar_rotacao(
+                imagem, parametros.get("angulo", self.rotacao_valor.get())
+            )
         if nome_transformacao == "Translação":
             return self._aplicar_translacao(
                 imagem,
@@ -864,7 +1069,9 @@ class ImageOperationGUI:
                 parametros.get("fator_y", self.cisalhoy_valor.get()),
             )
         if nome_transformacao == "Reflexão":
-            return self._aplicar_reflexao(imagem, parametros.get("reflexao", self.reflexao_valor.get()))
+            return self._aplicar_reflexao(
+                imagem, parametros.get("reflexao", self.reflexao_valor.get())
+            )
         if nome_transformacao in {
             "Zoom in - Replicação",
             "Zoom in - Interpolação",
@@ -890,7 +1097,11 @@ class ImageOperationGUI:
             )
         else:
             canvas = np.full(
-                (self.altura_canvas_transformacao, self.largura_canvas_transformacao, 3),
+                (
+                    self.altura_canvas_transformacao,
+                    self.largura_canvas_transformacao,
+                    3,
+                ),
                 self.cor_fundo_canvas,
                 dtype=np.uint8,
             )
@@ -923,7 +1134,11 @@ class ImageOperationGUI:
             )
         else:
             canvas = np.full(
-                (self.altura_canvas_transformacao, self.largura_canvas_transformacao, 3),
+                (
+                    self.altura_canvas_transformacao,
+                    self.largura_canvas_transformacao,
+                    3,
+                ),
                 self.cor_fundo_canvas,
                 dtype=np.uint8,
             )
@@ -953,15 +1168,15 @@ class ImageOperationGUI:
 
         if largura_colada > 0 and altura_colada > 0:
             canvas[
-                dst_y_ini:dst_y_ini + altura_colada,
-                dst_x_ini:dst_x_ini + largura_colada,
+                dst_y_ini : dst_y_ini + altura_colada,
+                dst_x_ini : dst_x_ini + largura_colada,
             ] = imagem[
-                src_y_ini:src_y_ini + altura_colada,
-                src_x_ini:src_x_ini + largura_colada,
+                src_y_ini : src_y_ini + altura_colada,
+                src_x_ini : src_x_ini + largura_colada,
             ]
 
         return canvas
-    
+
     def atualizar_transformacao(self):
         """Atualiza a transformação em tempo real baseado nos sliders"""
         if self.imagem_transformacao is None:
@@ -972,9 +1187,15 @@ class ImageOperationGUI:
 
         imagem_temp = self._criar_canvas_base_transformacao()
         imagem_temp = self._aplicar_rotacao(imagem_temp, self.rotacao_valor.get())
-        imagem_temp = self._aplicar_translacao(imagem_temp, self.transladx_valor.get(), self.translady_valor.get())
-        imagem_temp = self._aplicar_escala(imagem_temp, self.escalax_valor.get(), self.escalay_valor.get())
-        imagem_temp = self._aplicar_cisalhamento(imagem_temp, self.cisalhox_valor.get(), self.cisalhoy_valor.get())
+        imagem_temp = self._aplicar_translacao(
+            imagem_temp, self.transladx_valor.get(), self.translady_valor.get()
+        )
+        imagem_temp = self._aplicar_escala(
+            imagem_temp, self.escalax_valor.get(), self.escalay_valor.get()
+        )
+        imagem_temp = self._aplicar_cisalhamento(
+            imagem_temp, self.cisalhox_valor.get(), self.cisalhoy_valor.get()
+        )
         imagem_temp = self._aplicar_reflexao(imagem_temp, self.reflexao_valor.get())
 
         imagem_temp = self._aplicar_zoom(
@@ -984,13 +1205,13 @@ class ImageOperationGUI:
         )
 
         self._mostrar_imagem_transformacao(imagem_temp)
-    
+
     def aplicar_transformacoes(self):
         """Aplica todas as transformações e salva o resultado"""
         if self.transformador is None:
             messagebox.showwarning("Aviso", "Selecione uma imagem para transformar.")
             return
-        
+
         self.atualizar_transformacao()
 
     def proxima_transformacao_composta(self):
@@ -999,7 +1220,10 @@ class ImageOperationGUI:
             return
 
         if self.modo_transformacao.get() != "composta":
-            messagebox.showinfo("Informação", "Selecione o modo 'Transformação composta' para usar o botão Próxima.")
+            messagebox.showinfo(
+                "Informação",
+                "Selecione o modo 'Transformação composta' para usar o botão Próxima.",
+            )
             return
 
         if not self.composicao_ativa:
@@ -1008,14 +1232,20 @@ class ImageOperationGUI:
             self.imagem_composicao_atual = self._criar_canvas_base_transformacao()
 
             if not self.sequencia_composicao:
-                messagebox.showwarning("Aviso", "Adicione ao menos uma transformação na fila da composição.")
+                messagebox.showwarning(
+                    "Aviso",
+                    "Adicione ao menos uma transformação na fila da composição.",
+                )
                 return
 
             self.composicao_ativa = True
             self._atualizar_status_composicao()
 
         if self.indice_composicao >= len(self.sequencia_composicao):
-            messagebox.showinfo("Informação", "A transformação composta já foi concluída. Clique em Próxima novamente para reiniciar com os valores atuais.")
+            messagebox.showinfo(
+                "Informação",
+                "A transformação composta já foi concluída. Clique em Próxima novamente para reiniciar com os valores atuais.",
+            )
             self.composicao_ativa = False
             self.indice_composicao = 0
             self.imagem_composicao_atual = None
@@ -1039,7 +1269,7 @@ class ImageOperationGUI:
             messagebox.showinfo("Informação", "Transformação composta concluída.")
             self.composicao_ativa = False
             self._atualizar_status_composicao()
-    
+
     def resetar_transformacoes(self):
         """Reseta todos os sliders para seus valores padrão"""
         self.rotacao_valor.set(0)
@@ -1064,65 +1294,76 @@ class ImageOperationGUI:
         self.sequencia_composicao = []
         self.imagem_composicao_atual = None
         self._atualizar_estado_modo_transformacao()
-        
+
         if self.transformador is not None:
             self.atualizar_transformacao()
-    
+
     def selecionar_imagem(self, alvo):
         """Seleciona uma imagem do disco"""
         from implementacaoPrimeiraUnidade import Image
-        
+
         caminho = filedialog.askopenfilename(
             title="Selecione uma imagem",
-            filetypes=[("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"), ("Todos os arquivos", "*.*")]
+            filetypes=[
+                ("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"),
+                ("Todos os arquivos", "*.*"),
+            ],
         )
-        
+
         if not caminho:
             return
-        
+
         try:
             nova_imagem = Image(caminho)
         except Exception as erro:
             messagebox.showerror("Erro", f"Nao foi possivel carregar a imagem.\n{erro}")
             return
-        
+
         if alvo == 1:
             if self.imagem1 is not None:
                 cv2.destroyWindow(self.imagem1.imageName)
-            
+
             self.imagem1 = nova_imagem
             self.imagem1.showImage()
-            self.label_img1.config(text=f"Imagem 1: {Path(self.imagem1.imageName).name}")
+            self.label_img1.config(
+                text=f"Imagem 1: {Path(self.imagem1.imageName).name}"
+            )
         else:
             if self.imagem2 is not None:
                 cv2.destroyWindow(self.imagem2.imageName)
-            
+
             self.imagem2 = nova_imagem
             self.imagem2.showImage()
-            self.label_img2.config(text=f"Imagem 2: {Path(self.imagem2.imageName).name}")
-        
+            self.label_img2.config(
+                text=f"Imagem 2: {Path(self.imagem2.imageName).name}"
+            )
+
         if self.imagem1 is not None and self.imagem2 is not None:
             self.imagem2.resizeImage(self.imagem1.largura, self.imagem1.altura)
-    
+
     def aplicar_operacao(self):
         """Aplica a operação escolhida nas duas imagens"""
         from implementacaoPrimeiraUnidade import ImageOperation
-        
+
         operacao_escolhida = self.combo_operacoes.get()
-        
+
         if self.imagem1 is None or self.imagem2 is None:
-            messagebox.showwarning("Aviso", "Selecione as duas imagens antes de gerar o resultado.")
+            messagebox.showwarning(
+                "Aviso", "Selecione as duas imagens antes de gerar o resultado."
+            )
             return
-        
+
         if operacao_escolhida not in self.dicionario_operacoes:
             messagebox.showwarning("Aviso", "Selecione uma operação válida.")
             return
-        
+
         self.imagem2.resizeImage(self.imagem1.largura, self.imagem1.altura)
-        
-        resultado = ImageOperation(self.imagem1, self.imagem2, self.dicionario_operacoes[operacao_escolhida]).result
+
+        resultado = ImageOperation(
+            self.imagem1, self.imagem2, self.dicionario_operacoes[operacao_escolhida]
+        ).result
         resultado.showImage()
-    
+
     def run(self):
         """Inicia a interface"""
         self.root.mainloop()

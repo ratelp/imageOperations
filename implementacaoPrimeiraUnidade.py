@@ -244,7 +244,7 @@ class PseudoColorizer:
     def __init__(self, image):
         self.image = image.image
 
-    def apply_slicing(self, min_val, max_val, color_bgr):
+    def apply_slicing(self, intervals):
         img = self.image
 
         # Converter para escala de cinza se for colorida
@@ -256,23 +256,22 @@ class PseudoColorizer:
         # Converter de volta para BGR para poder aplicar cor
         colored = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
-        # Criar máscara para o fatiamento
-        mask = (gray >= min_val) & (gray <= max_val)
-
-        # Aplicar a cor (OpenCV usa BGR)
-        colored[mask] = color_bgr
+        # Criar máscaras para o fatiamento
+        for min_val, max_val, color_bgr in intervals:
+            mask = (gray >= min_val) & (gray <= max_val)
+            colored[mask] = color_bgr
 
         return colored
 
     def apply_redistribution(self, colormap_type):
         img = self.image
 
-        # inicialmente, converte imagem para escala de cinza 
+        # inicialmente, converte imagem para escala de cinza
         if len(img.shape) == 3:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         else:
             gray = img
-            
+
         colored = cv2.applyColorMap(gray, colormap_type)
         return colored
 
