@@ -159,6 +159,12 @@ class ColorSpaceDecomposer:
     def __init__(self, image):
         self.image = image.image
 
+    def _split_and_show(self, img, titles, prefix=""):
+        channels = cv2.split(img)
+        for i, channel in enumerate(channels):
+            if i < len(titles):
+                cv2.imshow(f"{prefix} - {titles[i]}", channel)
+
     def decompose(self, color_space):
         # opencv abre em bgr por padrão
         img_bgr = self.image
