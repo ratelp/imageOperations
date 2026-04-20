@@ -159,6 +159,12 @@ class ColorSpaceDecomposer:
     def __init__(self, image):
         self.image = image.image
 
+    def _split_and_show(self, img, titles, prefix=""):
+        channels = cv2.split(img)
+        for i, channel in enumerate(channels):
+            if i < len(titles):
+                cv2.imshow(f"{prefix} - {titles[i]}", channel)
+
     def decompose(self, color_space):
         # opencv abre em bgr por padrão
         img_bgr = self.image
@@ -216,10 +222,9 @@ class ColorSpaceDecomposer:
 
         elif color_space == "HSL":
             hls = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HLS)
-            channels = cv2.split(hls)
-            cv2.imshow("HSL - H (Hue)", channels[0])
-            cv2.imshow("HSL - S (Saturation)", channels[2])
-            cv2.imshow("HSL - L (Lightness)", channels[1])
+            self._split_and_show(
+                hls, ["H (Hue)", "L (Lightness)", "S (Saturation)"], "HSL"
+            )
 
         elif color_space == "YUV":
             yuv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2YUV)
