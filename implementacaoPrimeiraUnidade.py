@@ -240,6 +240,30 @@ class ColorSpaceDecomposer:
             cv2.imshow("YUV - V (Chroma Red)", v_color)
 
 
+class PseudoColorizer:
+    def __init__(self, image):
+        self.image = image.image
+
+    def apply_slicing(self, min_val, max_val, color_bgr):
+        img = self.image
+
+        # Converter para escala de cinza se for colorida
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img
+
+        # Converter de volta para BGR para poder aplicar cor
+        colored = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+        # Criar máscara para o fatiamento
+        mask = (gray >= min_val) & (gray <= max_val)
+
+        # Aplicar a cor (OpenCV usa BGR)
+        colored[mask] = color_bgr
+
+        return colored
+
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)

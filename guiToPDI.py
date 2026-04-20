@@ -89,6 +89,11 @@ class ImageOperationGUI:
         notebook.add(frame_decomposicao, text="Decomposição")
         self._criar_aba_decomposicao(frame_decomposicao)
 
+        # Aba 4: Pseudocolorização
+        frame_pseudocolorizacao = ttk.Frame(notebook)
+        notebook.add(frame_pseudocolorizacao, text="Pseudocolorização")
+        self._criar_aba_pseudocolorizacao(frame_pseudocolorizacao)
+
     def _criar_aba_decomposicao(self, parent):
         """Cria a aba para decomposição de imagens em diferentes espaços de cores"""
         tk.Label(
@@ -175,6 +180,87 @@ class ImageOperationGUI:
         espaco = self.combo_espaco_cor.get()
         decompositor = ColorSpaceDecomposer(self.imagem_para_decomposicao)
         decompositor.decompose(espaco)
+
+
+    def _criar_aba_pseudocolorizacao(self, parent):
+        tk.Label(parent, text="Pseudocolorização (Fatiamento)", font=("Arial", 14, "bold")).pack(pady=15)
+        
+        frame_selecao = tk.Frame(parent)
+        frame_selecao.pack(pady=10)
+        
+        self.label_img_pseudo = tk.Label(frame_selecao, text="Nenhuma imagem selecionada", font=("Arial", 10), foreground="red")
+        self.label_img_pseudo.pack(side="left", padx=10)
+        
+        tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_pseudocolorizacao).pack(side="left", padx=10)
+        
+        frame_intervalo = tk.LabelFrame(parent, text="Intervalo de Intensidade (Fatiamento)", padx=10, pady=10)
+        frame_intervalo.pack(pady=15, padx=20, fill="x")
+        
+        self.pseudo_min_val = tk.IntVar(value=0)
+        self.pseudo_max_val = tk.IntVar(value=60)
+        
+        tk.Label(frame_intervalo, text="Mínimo (0-255):").pack(side="left", padx=5)
+        tk.Entry(frame_intervalo, textvariable=self.pseudo_min_val, width=5).pack(side="left", padx=5)
+        
+        tk.Label(frame_intervalo, text="Máximo (0-255):").pack(side="left", padx=5)
+        tk.Entry(frame_intervalo, textvariable=self.pseudo_max_val, width=5).pack(side="left", padx=5)
+        
+        frame_cor = tk.LabelFrame(parent, text="Cor de Destaque (RGB)", padx=10, pady=10)
+        frame_cor.pack(pady=15, padx=20, fill="x")
+        
+        self.pseudo_r_val = tk.IntVar(value=160)
+        self.pseudo_g_val = tk.IntVar(value=57)
+        self.pseudo_b_val = tk.IntVar(value=0)
+        
+        tk.Label(frame_cor, text="R:").pack(side="left", padx=5)
+        tk.Entry(frame_cor, textvariable=self.pseudo_r_val, width=5).pack(side="left", padx=5)
+        tk.Label(frame_cor, text="G:").pack(side="left", padx=5)
+        tk.Entry(frame_cor, textvariable=self.pseudo_g_val, width=5).pack(side="left", padx=5)
+        tk.Label(frame_cor, text="B:").pack(side="left", padx=5)
+        tk.Entry(frame_cor, textvariable=self.pseudo_b_val, width=5).pack(side="left", padx=5)
+        
+        btn_aplicar = tk.Button(parent, text="Aplicar Pseudocolorização", command=self.aplicar_pseudocolorizacao_fatiamento, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
+        btn_aplicar.pack(pady=20)
+        
+        self.imagem_para_pseudo = None
+
+    def selecionar_imagem_pseudocolorizacao(self):
+        from implementacaoPrimeiraUnidade import Image
+        caminho = filedialog.askopenfilename(
+            title="Selecione uma imagem",
+            filetypes=[("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"), ("Todos os arquivos", "*.*")]
+        )
+        if not caminho:
+            return
+        try:
+            self.imagem_para_pseudo = Image(caminho)
+            self.label_img_pseudo.config(text=Path(caminho).name, foreground="green")
+            self.imagem_para_pseudo.showImage()
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a imagem.\n{erro}")
+
+    def aplicar_pseudocolorizacao_fatiamento(self):
+        from implementacaoPrimeiraUnidade import PseudoColorizer
+        if self.imagem_para_pseudo is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+            
+        try:
+            min_val = self.pseudo_min_val.get()
+            max_val = self.pseudo_max_val.get()
+            r_val = self.pseudo_r_val.get()
+            g_val = self.pseudo_g_val.get()
+            b_val = self.pseudo_b_val.get()
+            
+            # opencv expects BGR
+            color_bgr = (b_val, g_val, r_val)
+            
+            colorizer = PseudoColorizer(self.imagem_para_pseudo)
+            result_img = colorizer.apply_slicing(min_val, max_val, color_bgr)
+            
+            cv2.imshow("Pseudocolorização - Fatiamento", result_img)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Valores inválidos.\n{e}")
 
     def _criar_aba_operacoes(self, parent):
         """Cria a aba de operações entre duas imagens"""
