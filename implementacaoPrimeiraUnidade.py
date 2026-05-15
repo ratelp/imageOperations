@@ -279,7 +279,6 @@ class PseudoColorizer:
         return colored
 
 class Realce:
-
     def __init__(self, image):
         self.image = image.image
         
@@ -355,6 +354,27 @@ class Realce:
         resultado = c * (img_float ** 2)
         return np.clip(resultado, 0, 255).astype(np.uint8)
 
+    def equalizacao_histograma(self):
+        return cv2.equalizeHist(self.image_gray)
+
+    def aplicar_com_cores(self, func_transformacao, *args):
+        if len(self.image.shape) == 2:
+            return func_transformacao(*args)
+
+        img_yuv = cv2.cvtColor(self.image, cv2.COLOR_BGR2YUV)
+        
+        canal_y = img_yuv[:, :, 0]
+        
+        backup_gray = self.image_gray
+        self.image_gray = canal_y
+        
+        canal_y_realcado = func_transformacao(*args)
+        
+        self.image_gray = backup_gray
+        
+        img_yuv[:, :, 0] = canal_y_realcado
+        
+        return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
       
 if __name__ == "__main__":
     janela = tk.Tk()

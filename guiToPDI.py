@@ -75,6 +75,7 @@ class ImageOperationGUI:
         self.realce_g_max = tk.IntVar(value=255)
         self.realce_limiar = tk.IntVar(value=128)
         self.realce_gamma = tk.DoubleVar(value=1.5)
+        self.linear_b_intervals = []
 
         self._criar_widgets()
 
@@ -108,6 +109,18 @@ class ImageOperationGUI:
         frame_realce = ttk.Frame(notebook)
         notebook.add(frame_realce, text="Realce")
         self._criar_aba_realce(frame_realce)
+
+    def mostrar_original_e_resultado(self, titulo_original, img_original, titulo_resultado, img_result):
+        """Mostra lado a lado (ou em janelas separadas) a imagem original e a imagem editada."""
+        try:
+            cv2.imshow(titulo_original, img_original)
+        except cv2.error:
+            pass
+
+        try:
+            cv2.imshow(titulo_resultado, img_result)
+        except cv2.error:
+            pass
 
     def _criar_aba_decomposicao(self, parent):
         """Cria a aba para decomposição de imagens em diferentes espaços de cores"""
@@ -303,7 +316,7 @@ class ImageOperationGUI:
             fg="white",
             font=("Arial", 11, "bold"),
         )
-        btn_aplicar.pack(pady=20)
+        btn_aplicar.pack(pady=20, fill="x", padx=10)
 
         self.imagem_para_pseudo = None
 
@@ -365,6 +378,55 @@ class ImageOperationGUI:
         else:
             messagebox.showwarning("Aviso", "Você deve manter pelo menos um intervalo.")
 
+    def _adicionar_intervalo_realce(self, defaults=(0, 255, 0, 255)):
+        """Adiciona um intervalo para o mapeamento linear por partes.
+        defaults: (f_min, f_max, g_min, g_max)
+        """
+        f_min_def, f_max_def, g_min_def, g_max_def = defaults
+
+        row_frame = tk.LabelFrame(
+            self.frame_intervalos_realce, text="Intervalo (f_min, f_max) -> (g_min, g_max)", padx=5, pady=5
+        )
+        row_frame.pack(pady=5, fill="x")
+
+        fmin = tk.IntVar(value=f_min_def)
+        fmax = tk.IntVar(value=f_max_def)
+        gmin = tk.IntVar(value=g_min_def)
+        gmax = tk.IntVar(value=g_max_def)
+
+        tk.Label(row_frame, text="f_min:").pack(side="left")
+        tk.Entry(row_frame, textvariable=fmin, width=4).pack(side="left", padx=2)
+        tk.Label(row_frame, text="f_max:").pack(side="left")
+        tk.Entry(row_frame, textvariable=fmax, width=4).pack(side="left", padx=2)
+
+        tk.Label(row_frame, text="  g_min:").pack(side="left")
+        tk.Entry(row_frame, textvariable=gmin, width=4).pack(side="left", padx=2)
+        tk.Label(row_frame, text="g_max:").pack(side="left")
+        tk.Entry(row_frame, textvariable=gmax, width=4).pack(side="left", padx=2)
+
+        interval_data = {
+            "frame": row_frame,
+            "f_min": fmin,
+            "f_max": fmax,
+            "g_min": gmin,
+            "g_max": gmax,
+        }
+
+        self.linear_b_intervals.append(interval_data)
+
+        tk.Button(
+            row_frame,
+            text="Remover",
+            command=lambda: self._remover_intervalo_realce(interval_data),
+        ).pack(side="right", padx=5)
+
+    def _remover_intervalo_realce(self, interval_data):
+        if len(self.linear_b_intervals) > 1:
+            interval_data["frame"].destroy()
+            self.linear_b_intervals.remove(interval_data)
+        else:
+            messagebox.showwarning("Aviso", "Você deve manter ao menos um intervalo.")
+
     def selecionar_imagem_pseudocolorizacao(self):
         from implementacaoPrimeiraUnidade import Image
 
@@ -415,9 +477,7 @@ class ImageOperationGUI:
                 )
 
                 result_img = colorizer.apply_redistribution(id_colormap)
-                cv2.imshow(
-                    f"Pseudocolorização - Redistribuição ({nome_colormap})", result_img
-                )
+                cv2.imshow(f"Pseudocolorização - Redistribuição ({nome_colormap})", result_img)
 
         except Exception as e:
             messagebox.showerror("Erro", f"Ocorreu um erro ao aplicar.\n{e}")
@@ -789,6 +849,10 @@ class ImageOperationGUI:
             )
 
             self.label_img_transform.config(text=Path(caminho).name, foreground="green")
+            try:
+                self.imagem_transformacao.showImage()
+            except Exception:
+                pass
             self.resetar_transformacoes()
         except Exception as erro:
             messagebox.showerror("Erro", f"Nao foi possivel carregar a imagem.\n{erro}")
@@ -1375,7 +1439,14 @@ class ImageOperationGUI:
         resultado = ImageOperation(
             self.imagem1, self.imagem2, self.dicionario_operacoes[operacao_escolhida]
         ).result
-        resultado.showImage()
+        # mostrar apenas o resultado (originais já estão sendo exibidas separadamente)
+        try:
+            resultado.showImage()
+        except Exception:
+            try:
+                cv2.imshow(f"Resultado - Operação ({operacao_escolhida})", resultado.image)
+            except Exception:
+                pass
 
     def _criar_aba_realce(self, parent):
         """Cria a aba para realce e transformações de contraste"""
@@ -1412,6 +1483,7 @@ class ImageOperationGUI:
             ("Não-Linear - Raiz", "nlinear_raiz"),
             ("Não-Linear - Exponencial", "nlinear_exponencial"),
             ("Não-Linear - Quadrado", "nlinear_quadrado"),
+            ("Equalização de Histograma", "equalizacao_histograma"),
         ]
 
         for label, valor in tipos_realce:
@@ -1438,7 +1510,7 @@ class ImageOperationGUI:
             fg="white",
             font=("Arial", 11, "bold"),
         )
-        btn_aplicar.pack(pady=20)
+        btn_aplicar.pack(pady=20, fill="x", padx=10)
 
     def _atualizar_parametros_realce(self):
         """Atualiza os parâmetros exibidos baseado no tipo de realce selecionado"""
@@ -1467,7 +1539,22 @@ class ImageOperationGUI:
 
         elif tipo == "linear_b_partes":
             tk.Label(self.frame_parametros_realce, text="Mapeamento Linear por Partes", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
-            tk.Label(self.frame_parametros_realce, text="Aplica intervalos predefinidos (0-60→0-85, 61-120→85-170, 121-180→170-255)", font=("Arial", 8)).pack(anchor="w", wraplength=350)
+
+            # Container para intervalos dinâmicos
+            self.frame_intervalos_realce = tk.Frame(self.frame_parametros_realce)
+            self.frame_intervalos_realce.pack(fill="x", pady=5)
+
+            # Reinicia os intervalos ao entrar neste modo para evitar refs para widgets destruídos
+            self.linear_b_intervals = []
+
+            # Botões de controle
+            controles = tk.Frame(self.frame_parametros_realce)
+            controles.pack(fill="x", pady=(3, 8))
+            tk.Button(controles, text="+ Adicionar Intervalo", command=self._adicionar_intervalo_realce).pack(side="left")
+
+            # Se não existir nenhum intervalo, adiciona um padrão
+            if not self.linear_b_intervals:
+                self._adicionar_intervalo_realce()
 
         elif tipo == "linear_c_inversa":
             tk.Label(self.frame_parametros_realce, text="Transformação Inversa", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
@@ -1507,6 +1594,10 @@ class ImageOperationGUI:
             tk.Label(self.frame_parametros_realce, text="Transformação Quadrado", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
             tk.Label(self.frame_parametros_realce, text="g(x,y) = c * f(x,y)² (Gamma 2.0) — Escurece significativamente", font=("Arial", 8)).pack(anchor="w")
 
+        elif tipo == "equalizacao_histograma":
+            tk.Label(self.frame_parametros_realce, text="Equalização de Histograma", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            tk.Label(self.frame_parametros_realce, text="Redistribui os pixels uniformemente ao longo do intervalo de intensidade — Aumenta o contraste global", font=("Arial", 8)).pack(anchor="w")
+
     def selecionar_imagem_realce(self):
         """Seleciona uma imagem para realce"""
         from implementacaoPrimeiraUnidade import Image
@@ -1527,6 +1618,10 @@ class ImageOperationGUI:
                 text=f"Imagem: {Path(caminho).name}",
                 foreground="green"
             )
+            try:
+                self.imagem_para_realce.showImage()
+            except Exception:
+                pass
         except Exception as erro:
             messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
 
@@ -1544,40 +1639,64 @@ class ImageOperationGUI:
             resultado = None
 
             if tipo == "linear_a_mapeamento":
-                resultado = realce.linear_a_mapeamento(
+                resultado = realce.aplicar_com_cores(
+                    realce.linear_a_mapeamento,
                     self.realce_g_min.get(),
-                    self.realce_g_max.get()
+                    self.realce_g_max.get(),
                 )
 
             elif tipo == "linear_b_partes":
-                # Intervalos predefinidos: (f_min, f_max, g_min, g_max)
                 intervalos = [
-                    (0, 60, 0, 85),
-                    (61, 120, 85, 170),
-                    (121, 180, 170, 255)
+                    (
+                        data["f_min"].get(),
+                        data["f_max"].get(),
+                        data["g_min"].get(),
+                        data["g_max"].get(),
+                    )
+                    for data in self.linear_b_intervals
                 ]
-                resultado = realce.linear_b_partes(intervalos)
+
+                if not intervalos:
+                    messagebox.showwarning(
+                        "Aviso",
+                        "Adicione ao menos um intervalo para aplicar o mapeamento por partes.",
+                    )
+                    return
+
+                resultado = realce.aplicar_com_cores(realce.linear_b_partes, intervalos)
 
             elif tipo == "linear_c_inversa":
-                resultado = realce.linear_c_inversa()
+                resultado = realce.aplicar_com_cores(realce.linear_c_inversa)
 
             elif tipo == "linear_d_binaria":
-                resultado = realce.linear_d_binaria(self.realce_limiar.get())
+                resultado = realce.aplicar_com_cores(
+                    realce.linear_d_binaria,
+                    self.realce_limiar.get()
+                )
 
             elif tipo == "nlinear_logaritmica":
-                resultado = realce.nlinear_logaritmica()
+                resultado = realce.aplicar_com_cores(realce.nlinear_logaritmica)
 
             elif tipo == "nlinear_raiz":
-                resultado = realce.nlinear_raiz()
+                resultado = realce.aplicar_com_cores(realce.nlinear_raiz)
 
             elif tipo == "nlinear_exponencial":
-                resultado = realce.nlinear_exponencial(self.realce_gamma.get())
+                resultado = realce.aplicar_com_cores(
+                    realce.nlinear_exponencial,
+                    self.realce_gamma.get()
+                )
 
             elif tipo == "nlinear_quadrado":
-                resultado = realce.nlinear_quadrado()
+                resultado = realce.aplicar_com_cores(realce.nlinear_quadrado)
+
+            elif tipo == "equalizacao_histograma":
+                resultado = realce.aplicar_com_cores(realce.equalizacao_histograma)
 
             if resultado is not None:
-                cv2.imshow("Resultado - Realce", resultado)
+                try:
+                    cv2.imshow("Resultado - Realce", resultado)
+                except Exception:
+                    pass
                 messagebox.showinfo("Sucesso", "Realce aplicado com sucesso!")
 
         except Exception as erro:
