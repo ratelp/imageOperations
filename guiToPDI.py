@@ -68,6 +68,14 @@ class ImageOperationGUI:
         self.zoom_fator_valor = tk.DoubleVar(value=1.0)
         self.slider_zoom_fator = None
 
+        # Variáveis para Realce
+        self.imagem_para_realce = None
+        self.realce_tipo = tk.StringVar(value="linear_a_mapeamento")
+        self.realce_g_min = tk.IntVar(value=0)
+        self.realce_g_max = tk.IntVar(value=255)
+        self.realce_limiar = tk.IntVar(value=128)
+        self.realce_gamma = tk.DoubleVar(value=1.5)
+
         self._criar_widgets()
 
     def _criar_widgets(self):
@@ -95,6 +103,11 @@ class ImageOperationGUI:
         frame_pseudocolorizacao = ttk.Frame(notebook)
         notebook.add(frame_pseudocolorizacao, text="Pseudocolorização")
         self._criar_aba_pseudocolorizacao(frame_pseudocolorizacao)
+
+        # Aba 5: Realce
+        frame_realce = ttk.Frame(notebook)
+        notebook.add(frame_realce, text="Realce")
+        self._criar_aba_realce(frame_realce)
 
     def _criar_aba_decomposicao(self, parent):
         """Cria a aba para decomposição de imagens em diferentes espaços de cores"""
@@ -1363,6 +1376,212 @@ class ImageOperationGUI:
             self.imagem1, self.imagem2, self.dicionario_operacoes[operacao_escolhida]
         ).result
         resultado.showImage()
+
+    def _criar_aba_realce(self, parent):
+        """Cria a aba para realce e transformações de contraste"""
+        tk.Label(parent, text="Realce e Transformações de Contraste", font=("Arial", 14, "bold")).pack(pady=15)
+
+        # Seleção de Imagem
+        frame_selecao = tk.Frame(parent)
+        frame_selecao.pack(pady=10)
+        self.label_img_realce = tk.Label(
+            frame_selecao,
+            text="Nenhuma imagem selecionada",
+            font=("Arial", 10),
+            foreground="red",
+        )
+        self.label_img_realce.pack(side="left", padx=10)
+        tk.Button(
+            frame_selecao,
+            text="Selecionar Imagem",
+            command=self.selecionar_imagem_realce,
+        ).pack(side="left", padx=10)
+
+        # Seleção de Tipo de Realce
+        frame_tipo = tk.LabelFrame(parent, text="Tipo de Transformação", padx=10, pady=8)
+        frame_tipo.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Label(frame_tipo, text="Selecione o tipo:", font=("Arial", 10)).pack(anchor="w")
+
+        tipos_realce = [
+            ("Linear - Mapeamento (Min/Max)", "linear_a_mapeamento"),
+            ("Linear - Por Partes", "linear_b_partes"),
+            ("Linear - Inversa (Negativo)", "linear_c_inversa"),
+            ("Linear - Binária (Thresholding)", "linear_d_binaria"),
+            ("Não-Linear - Logarítmica", "nlinear_logaritmica"),
+            ("Não-Linear - Raiz", "nlinear_raiz"),
+            ("Não-Linear - Exponencial", "nlinear_exponencial"),
+            ("Não-Linear - Quadrado", "nlinear_quadrado"),
+        ]
+
+        for label, valor in tipos_realce:
+            tk.Radiobutton(
+                frame_tipo,
+                text=label,
+                variable=self.realce_tipo,
+                value=valor,
+                command=self._atualizar_parametros_realce,
+            ).pack(anchor="w", padx=10)
+
+        # Frame de Parâmetros
+        self.frame_parametros_realce = tk.LabelFrame(parent, text="Parâmetros", padx=10, pady=8)
+        self.frame_parametros_realce.pack(fill="x", padx=10, pady=(0, 10))
+
+        self._atualizar_parametros_realce()
+
+        # Botão Aplicar
+        btn_aplicar = tk.Button(
+            parent,
+            text="Aplicar Realce",
+            command=self.aplicar_realce,
+            bg="#212F22",
+            fg="white",
+            font=("Arial", 11, "bold"),
+        )
+        btn_aplicar.pack(pady=20)
+
+    def _atualizar_parametros_realce(self):
+        """Atualiza os parâmetros exibidos baseado no tipo de realce selecionado"""
+        # Limpa os widgets anteriores
+        for widget in self.frame_parametros_realce.winfo_children():
+            widget.destroy()
+
+        tipo = self.realce_tipo.get()
+
+        if tipo == "linear_a_mapeamento":
+            tk.Label(self.frame_parametros_realce, text="Mapeamento Linear (f → g)", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            
+            frame_g_min = tk.Frame(self.frame_parametros_realce)
+            frame_g_min.pack(fill="x", pady=5)
+            tk.Label(frame_g_min, text="g_min (saída mínima):", width=20).pack(side="left")
+            tk.Scale(frame_g_min, from_=0, to=255, orient="horizontal", variable=self.realce_g_min).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_g_min, textvariable=self.realce_g_min, width=5).pack(side="left")
+
+            frame_g_max = tk.Frame(self.frame_parametros_realce)
+            frame_g_max.pack(fill="x", pady=5)
+            tk.Label(frame_g_max, text="g_max (saída máxima):", width=20).pack(side="left")
+            tk.Scale(frame_g_max, from_=0, to=255, orient="horizontal", variable=self.realce_g_max).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_g_max, textvariable=self.realce_g_max, width=5).pack(side="left")
+
+            tk.Label(self.frame_parametros_realce, text="Expande o intervalo dinâmico da imagem", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
+
+        elif tipo == "linear_b_partes":
+            tk.Label(self.frame_parametros_realce, text="Mapeamento Linear por Partes", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            tk.Label(self.frame_parametros_realce, text="Aplica intervalos predefinidos (0-60→0-85, 61-120→85-170, 121-180→170-255)", font=("Arial", 8)).pack(anchor="w", wraplength=350)
+
+        elif tipo == "linear_c_inversa":
+            tk.Label(self.frame_parametros_realce, text="Transformação Inversa", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            tk.Label(self.frame_parametros_realce, text="Nega a imagem: g(x,y) = 255 - f(x,y)", font=("Arial", 8)).pack(anchor="w")
+
+        elif tipo == "linear_d_binaria":
+            tk.Label(self.frame_parametros_realce, text="Transformação Binária (Thresholding)", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            
+            frame_limiar = tk.Frame(self.frame_parametros_realce)
+            frame_limiar.pack(fill="x", pady=5)
+            tk.Label(frame_limiar, text="Limiar:", width=20).pack(side="left")
+            tk.Scale(frame_limiar, from_=0, to=255, orient="horizontal", variable=self.realce_limiar).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_limiar, textvariable=self.realce_limiar, width=5).pack(side="left")
+
+            tk.Label(self.frame_parametros_realce, text="Pixels acima do limiar → 255, abaixo → 0", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
+
+        elif tipo == "nlinear_logaritmica":
+            tk.Label(self.frame_parametros_realce, text="Transformação Logarítmica", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            tk.Label(self.frame_parametros_realce, text="g(x,y) = c * log(1 + f(x,y)) — Expande áreas escuras", font=("Arial", 8)).pack(anchor="w")
+
+        elif tipo == "nlinear_raiz":
+            tk.Label(self.frame_parametros_realce, text="Transformação Raiz", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            tk.Label(self.frame_parametros_realce, text="g(x,y) = c * √f(x,y) — Clareia a imagem (Gamma 0.5)", font=("Arial", 8)).pack(anchor="w")
+
+        elif tipo == "nlinear_exponencial":
+            tk.Label(self.frame_parametros_realce, text="Transformação Exponencial", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            
+            frame_gamma = tk.Frame(self.frame_parametros_realce)
+            frame_gamma.pack(fill="x", pady=5)
+            tk.Label(frame_gamma, text="Gamma:", width=20).pack(side="left")
+            tk.Scale(frame_gamma, from_=0.5, to=3.0, orient="horizontal", variable=self.realce_gamma, resolution=0.1).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_gamma, text=f"{self.realce_gamma.get():.1f}", width=5).pack(side="left")
+
+            tk.Label(self.frame_parametros_realce, text="g(x,y) = 255 * (f(x,y)/255)^γ — Escurece (γ>1) ou clareia (γ<1)", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
+
+        elif tipo == "nlinear_quadrado":
+            tk.Label(self.frame_parametros_realce, text="Transformação Quadrado", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            tk.Label(self.frame_parametros_realce, text="g(x,y) = c * f(x,y)² (Gamma 2.0) — Escurece significativamente", font=("Arial", 8)).pack(anchor="w")
+
+    def selecionar_imagem_realce(self):
+        """Seleciona uma imagem para realce"""
+        from implementacaoPrimeiraUnidade import Image
+
+        caminho = filedialog.askopenfilename(
+            title="Selecione uma imagem",
+            filetypes=[
+                ("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+        if not caminho:
+            return
+
+        try:
+            self.imagem_para_realce = Image(caminho)
+            self.label_img_realce.config(
+                text=f"Imagem: {Path(caminho).name}",
+                foreground="green"
+            )
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def aplicar_realce(self):
+        """Aplica a transformação de realce selecionada"""
+        from implementacaoPrimeiraUnidade import Realce
+
+        if self.imagem_para_realce is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+
+        try:
+            realce = Realce(self.imagem_para_realce)
+            tipo = self.realce_tipo.get()
+            resultado = None
+
+            if tipo == "linear_a_mapeamento":
+                resultado = realce.linear_a_mapeamento(
+                    self.realce_g_min.get(),
+                    self.realce_g_max.get()
+                )
+
+            elif tipo == "linear_b_partes":
+                # Intervalos predefinidos: (f_min, f_max, g_min, g_max)
+                intervalos = [
+                    (0, 60, 0, 85),
+                    (61, 120, 85, 170),
+                    (121, 180, 170, 255)
+                ]
+                resultado = realce.linear_b_partes(intervalos)
+
+            elif tipo == "linear_c_inversa":
+                resultado = realce.linear_c_inversa()
+
+            elif tipo == "linear_d_binaria":
+                resultado = realce.linear_d_binaria(self.realce_limiar.get())
+
+            elif tipo == "nlinear_logaritmica":
+                resultado = realce.nlinear_logaritmica()
+
+            elif tipo == "nlinear_raiz":
+                resultado = realce.nlinear_raiz()
+
+            elif tipo == "nlinear_exponencial":
+                resultado = realce.nlinear_exponencial(self.realce_gamma.get())
+
+            elif tipo == "nlinear_quadrado":
+                resultado = realce.nlinear_quadrado()
+
+            if resultado is not None:
+                cv2.imshow("Resultado - Realce", resultado)
+                messagebox.showinfo("Sucesso", "Realce aplicado com sucesso!")
+
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Erro ao aplicar realce:\n{erro}")
 
     def run(self):
         """Inicia a interface"""

@@ -152,8 +152,7 @@ class ImageTransformer:
 
         self.imagem_preview =cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_AREA)
 
-        return self.imagem_preview
-        
+        return self.imagem_preview     
 
 class ColorSpaceDecomposer:
     def __init__(self, image):
@@ -244,7 +243,6 @@ class ColorSpaceDecomposer:
             cv2.imshow("YUV - U (Chroma Blue)", u_color)
             cv2.imshow("YUV - V (Chroma Red)", v_color)
 
-
 class PseudoColorizer:
     def __init__(self, image):
         self.image = image.image
@@ -280,6 +278,84 @@ class PseudoColorizer:
         colored = cv2.applyColorMap(gray, colormap_type)
         return colored
 
+class Realce:
+
+    def __init__(self, image):
+        self.image = image.image
+        
+        # passando para escala de cinza
+        if len(self.image.shape) == 3:
+            self.image_gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        else:
+            self.image_gray = self.image.copy()
+
+    def linear_a_mapeamento(self, g_min, g_max):
+        f_min = np.min(self.image_gray)
+        f_max = np.max(self.image_gray)
+        
+        img_float = self.image_gray.astype(np.float32)
+        
+        if f_max > f_min: 
+            resultado = ((img_float - f_min) / (f_max - f_min)) * (g_max - g_min) + g_min
+        else:
+            resultado = img_float
+            
+        return np.clip(resultado, 0, 255).astype(np.uint8)
+
+    def linear_b_partes(self, intervalos):
+        img_float = self.image_gray.astype(np.float32)
+        resultado = np.zeros_like(img_float)
+        
+        for f_min, f_max, g_min, g_max in intervalos:
+            mask = (img_float >= f_min) & (img_float <= f_max)
+            
+            if f_max > f_min:
+                resultado[mask] = ((img_float[mask] - f_min) / (f_max - f_min)) * (g_max - g_min) + g_min
+            else:
+                resultado[mask] = g_min
+                
+        return np.clip(resultado, 0, 255).astype(np.uint8)
+
+    def linear_c_inversa(self):
+        return cv2.bitwise_not(self.image_gray)
+
+    def linear_d_binaria(self, limiar):
+        _, resultado = cv2.threshold(self.image_gray, limiar, 255, cv2.THRESH_BINARY)
+        return resultado
+
+    def nlinear_logaritmica(self):
+        img_float = self.image_gray.astype(np.float32)
+        
+        c = 255.0 / np.log(1 + np.max(img_float))
+        
+        resultado = c * np.log(1 + img_float)
+        return np.clip(resultado, 0, 255).astype(np.uint8)
+
+    def nlinear_raiz(self):
+        img_float = self.image_gray.astype(np.float32)
+        
+        c = 255.0 / np.sqrt(np.max(img_float))
+        
+        resultado = c * np.sqrt(img_float)
+        return np.clip(resultado, 0, 255).astype(np.uint8)
+
+    def nlinear_exponencial(self, gamma=1.5):
+        img_float = self.image_gray.astype(np.float32)
+        
+        img_norm = img_float / 255.0
+        resultado = 255.0 * (img_norm ** gamma)
+        
+        return np.clip(resultado, 0, 255).astype(np.uint8)
+
+    def nlinear_quadrado(self):
+        img_float = self.image_gray.astype(np.float32)
+        
+        c = 255.0 / (np.max(img_float) ** 2)
+        
+        resultado = c * (img_float ** 2)
+        return np.clip(resultado, 0, 255).astype(np.uint8)
+
+      
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)
