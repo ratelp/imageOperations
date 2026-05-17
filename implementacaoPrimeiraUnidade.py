@@ -395,7 +395,161 @@ class Realce:
         _, resultado = cv2.threshold(fatiado, 0, 255, cv2.THRESH_BINARY)
 
         return resultado
-      
+
+class Segmentacao:
+    def __init__(self, image):
+        self.image = image.image
+        
+        if len(self.image.shape) == 3:
+            self.image_gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        else:
+            self.image_gray = self.image.copy()
+
+    def deteccao_pontos(self, T):
+        kernel = np.array([[-1, -1, -1],
+                           [-1,  8, -1],
+                           [-1, -1, -1]], dtype=np.float32)
+        
+        R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+        
+        R_abs = np.abs(R)
+        
+        _, resultado = cv2.threshold(R_abs, T, 255, cv2.THRESH_BINARY)
+        
+        return resultado.astype(np.uint8)
+    
+    def deteccao_retas(self, direcao, T):
+        if direcao == 'horizontal':
+            kernel = np.array([[-1, -1, -1],
+                               [ 2,  2,  2],
+                               [-1, -1, -1]], dtype=np.float32)
+            
+        elif direcao == 'vertical':
+            kernel = np.array([[-1,  2, -1],
+                               [-1,  2, -1],
+                               [-1,  2, -1]], dtype=np.float32)
+            
+        elif direcao == '45':
+            kernel = np.array([[-1, -1,  2],
+                               [-1,  2, -1],
+                               [ 2, -1, -1]], dtype=np.float32)
+            
+        elif direcao == '135':
+            kernel = np.array([[ 2, -1, -1],
+                               [-1,  2, -1],
+                               [-1, -1,  2]], dtype=np.float32)
+        else:
+            raise ValueError("Direção inválida. Escolha entre: 'horizontal', 'vertical', '45', '135'")
+
+        R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+        
+        R_abs = np.abs(R)
+        
+        _, resultado = cv2.threshold(R_abs, T, 255, cv2.THRESH_BINARY)
+        
+        return resultado.astype(np.uint8)
+
+    def deteccao_bordas(self, metodo):
+        if metodo == 'roberts':
+            kernel_x = np.array([[-1, 0], [0, 1]], dtype=np.float32)
+            kernel_y = np.array([[0, -1], [1, 0]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'roberts_cruzado':
+            kernel_x = np.array([[1, 0], [0, -1]], dtype=np.float32)
+            kernel_y = np.array([[0, 1], [-1, 0]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'prewitt_gx':
+            kernel_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_x)
+        elif metodo == 'prewitt_gy':
+            kernel_y = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_y)
+        elif metodo == 'prewitt_magnitude':
+            kernel_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], dtype=np.float32)
+            kernel_y = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'sobel_gx':
+            kernel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_x)
+        elif metodo == 'sobel_gy':
+            kernel_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_y)
+        elif metodo == 'sobel_magnitude':
+            kernel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
+            kernel_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'kirsch':
+            kernels = [
+                np.array([[5, 5, 5], [-3, 0, -3], [-3, -3, -3]], dtype=np.float32),
+                np.array([[-3, 5, 5], [-3, 0, 5], [-3, -3, -3]], dtype=np.float32),
+                np.array([[-3, -3, 5], [-3, 0, 5], [-3, -3, 5]], dtype=np.float32),
+                np.array([[-3, -3, -3], [-3, 0, 5], [-3, 5, 5]], dtype=np.float32),
+                np.array([[-3, -3, -3], [-3, 0, -3], [5, 5, 5]], dtype=np.float32),
+                np.array([[-3, -3, -3], [5, 0, -3], [5, 5, -3]], dtype=np.float32),
+                np.array([[5, -3, -3], [5, 0, -3], [5, -3, -3]], dtype=np.float32),
+                np.array([[5, 5, -3], [5, 0, -3], [-3, -3, -3]], dtype=np.float32)
+            ]
+            return self._aplicar_mascara_maxima(kernels)
+        elif metodo == 'robinson':
+            kernels = [
+                np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=np.float32),
+                np.array([[2, 1, 0], [1, 0, -1], [0, -1, -2]], dtype=np.float32),
+                np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]], dtype=np.float32),
+                np.array([[0, -1, -2], [1, 0, -1], [2, 1, 0]], dtype=np.float32),
+                np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32),
+                np.array([[-2, -1, 0], [-1, 0, 1], [0, 1, 2]], dtype=np.float32),
+                np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32),
+                np.array([[0, 1, 2], [-1, 0, 1], [-2, -1, 0]], dtype=np.float32)
+            ]
+            return self._aplicar_mascara_maxima(kernels)
+        elif metodo == 'frei_chen':
+            sq2 = np.sqrt(2)
+            kernels = [
+                np.array([[1, sq2, 1], [0, 0, 0], [-1, -sq2, -1]], dtype=np.float32),
+                np.array([[1, 0, -1], [sq2, 0, -sq2], [1, 0, -1]], dtype=np.float32),
+                np.array([[0, -1, sq2], [1, 0, -1], [-sq2, 1, 0]], dtype=np.float32),
+                np.array([[sq2, -1, 0], [-1, 0, 1], [0, 1, -sq2]], dtype=np.float32)
+            ]
+            return self._aplicar_mascara_maxima(kernels)
+        elif metodo == 'laplaciano_h1':
+            kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel)
+        elif metodo == 'laplaciano_h2':
+            kernel = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel)
+        else:
+            raise ValueError("Método de borda não reconhecido.")
+        
+    def _aplicar_mascara_simples(self, kernel):
+        R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+
+        R_abs = np.abs(R)
+
+        resultado = cv2.normalize(R_abs, None, 0, 255, cv2.NORM_MINMAX)
+
+        return resultado.astype(np.uint8)
+
+    def _aplicar_gradiente_xy(self, kernel_x, kernel_y):
+        Gx = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel_x)
+        Gy = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel_y)
+        
+        magnitude = cv2.magnitude(Gx, Gy)
+        
+        resultado = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
+        return resultado.astype(np.uint8)
+
+    def _aplicar_mascara_maxima(self, kernels):
+        max_response = np.zeros_like(self.image_gray, dtype=np.float64)
+        
+        for kernel in kernels:
+            R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+            R_abs = np.abs(R)
+
+            max_response = np.maximum(max_response, R_abs)
+            
+        resultado = cv2.normalize(max_response, None, 0, 255, cv2.NORM_MINMAX)
+        return resultado.astype(np.uint8)
+    
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)

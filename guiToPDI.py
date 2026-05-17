@@ -77,6 +77,12 @@ class ImageOperationGUI:
         self.realce_gamma = tk.DoubleVar(value=1.5)
         self.realce_bit_plane = tk.IntVar(value=0)
         self.linear_b_intervals = []
+        # Variáveis para Segmentação
+        self.imagem_para_segmentacao = None
+        self.segmentacao_T = tk.IntVar(value=50)
+        self.segmentacao_mode = tk.StringVar(value="pontos")
+        self.segmentacao_direcao = tk.StringVar(value="horizontal")
+        self.segmentacao_metodo_borda = tk.StringVar(value="roberts")
 
         self._criar_widgets()
 
@@ -110,6 +116,11 @@ class ImageOperationGUI:
         frame_realce = ttk.Frame(notebook)
         notebook.add(frame_realce, text="Realce")
         self._criar_aba_realce(frame_realce)
+
+        # Aba 6: Segmentação
+        frame_segmentacao = ttk.Frame(notebook)
+        notebook.add(frame_segmentacao, text="Segmentação")
+        self._criar_aba_segmentacao(frame_segmentacao)
 
     def mostrar_original_e_resultado(self, titulo_original, img_original, titulo_resultado, img_result):
         """Mostra lado a lado (ou em janelas separadas) a imagem original e a imagem editada."""
@@ -1649,6 +1660,149 @@ class ImageOperationGUI:
                 pass
         except Exception as erro:
             messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def _criar_aba_segmentacao(self, parent):
+        tk.Label(parent, text="Segmentação de Imagem", font=("Arial", 14, "bold")).pack(pady=15)
+
+        frame_selecao = tk.Frame(parent)
+        frame_selecao.pack(pady=10)
+
+        self.label_img_segmentacao = tk.Label(frame_selecao, text="Nenhuma imagem selecionada", font=("Arial", 10), foreground="red")
+        self.label_img_segmentacao.pack(side="left", padx=10)
+
+        tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_segmentacao).pack(side="left", padx=10)
+
+        # Modo de segmentação
+        frame_mode = tk.Frame(parent)
+        frame_mode.pack(pady=6, fill="x", padx=10)
+        tk.Label(frame_mode, text="Modo:", width=12).pack(side="left")
+        tk.Radiobutton(
+            frame_mode,
+            text="Detecção de Pontos",
+            variable=self.segmentacao_mode,
+            value="pontos",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(side="left", padx=6)
+        tk.Radiobutton(
+            frame_mode,
+            text="Detecção de Retas",
+            variable=self.segmentacao_mode,
+            value="retas",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(side="left", padx=6)
+        tk.Radiobutton(
+            frame_mode,
+            text="Detecção de Bordas",
+            variable=self.segmentacao_mode,
+            value="bordas",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(side="left", padx=6)
+
+        # Direção (usado para detecção de retas)
+        self.frame_segmentacao_direcao = tk.Frame(parent)
+        tk.Label(self.frame_segmentacao_direcao, text="Direção:", width=12).pack(side="left")
+        combo_dir = ttk.Combobox(
+            self.frame_segmentacao_direcao,
+            values=["horizontal", "vertical", "45", "135"],
+            state="readonly",
+            textvariable=self.segmentacao_direcao,
+            width=12,
+        )
+        combo_dir.pack(side="left", padx=5)
+
+        self.frame_segmentacao_borda = tk.Frame(parent)
+        tk.Label(self.frame_segmentacao_borda, text="Método:", width=12).pack(side="left")
+        combo_borda = ttk.Combobox(
+            self.frame_segmentacao_borda,
+            values=[
+                "roberts",
+                "roberts_cruzado",
+                "prewitt_gx",
+                "prewitt_gy",
+                "prewitt_magnitude",
+                "sobel_gx",
+                "sobel_gy",
+                "sobel_magnitude",
+                "kirsch",
+                "robinson",
+                "frei_chen",
+                "laplaciano_h1",
+                "laplaciano_h2",
+            ],
+            state="readonly",
+            textvariable=self.segmentacao_metodo_borda,
+            width=18,
+        )
+        combo_borda.pack(side="left", padx=5)
+
+        frame_param = tk.Frame(parent)
+        frame_param.pack(pady=10, fill="x", padx=10)
+
+        tk.Label(frame_param, text="Limiar T:", width=12).pack(side="left")
+        tk.Scale(frame_param, from_=0, to=255, orient="horizontal", variable=self.segmentacao_T).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_param, textvariable=self.segmentacao_T, width=4).pack(side="left")
+
+        btn_aplicar = tk.Button(parent, text="Aplicar Segmentação", command=self.aplicar_segmentacao, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
+        btn_aplicar.pack(pady=20, fill="x", padx=10)
+
+        self._atualizar_opcoes_segmentacao()
+
+    def _atualizar_opcoes_segmentacao(self):
+        if not hasattr(self, "frame_segmentacao_direcao") or not hasattr(self, "frame_segmentacao_borda"):
+            return
+
+        self.frame_segmentacao_direcao.pack_forget()
+        self.frame_segmentacao_borda.pack_forget()
+
+        if self.segmentacao_mode.get() == "retas":
+            self.frame_segmentacao_direcao.pack(pady=6, fill="x", padx=10)
+        elif self.segmentacao_mode.get() == "bordas":
+            self.frame_segmentacao_borda.pack(pady=6, fill="x", padx=10)
+
+    def selecionar_imagem_segmentacao(self):
+        from implementacaoPrimeiraUnidade import Image
+
+        caminho = filedialog.askopenfilename(title="Selecione uma imagem", filetypes=[("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"), ("Todos os arquivos", "*.*")])
+        if not caminho:
+            return
+        try:
+            self.imagem_para_segmentacao = Image(caminho)
+            self.label_img_segmentacao.config(text=Path(caminho).name, foreground="green")
+            try:
+                self.imagem_para_segmentacao.showImage()
+            except Exception:
+                pass
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def aplicar_segmentacao(self):
+        from implementacaoPrimeiraUnidade import Segmentacao
+
+        if self.imagem_para_segmentacao is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+
+        try:
+            seg = Segmentacao(self.imagem_para_segmentacao)
+            if self.segmentacao_mode.get() == "pontos":
+                resultado = seg.deteccao_pontos(self.segmentacao_T.get())
+                win_title = "Segmentacao (Deteccao de Pontos)"
+            elif self.segmentacao_mode.get() == "retas":
+                direcao = self.segmentacao_direcao.get()
+                resultado = seg.deteccao_retas(direcao, self.segmentacao_T.get())
+                win_title = f"Segmentacao (Deteccao de Retas - {direcao})"
+            else:
+                metodo = self.segmentacao_metodo_borda.get()
+                resultado = seg.deteccao_bordas(metodo)
+                win_title = f"Segmentacao (Deteccao de Bordas - {metodo})"
+
+            try:
+                cv2.imshow(win_title, resultado)
+            except Exception:
+                pass
+            messagebox.showinfo("Sucesso", "Segmentação aplicada com sucesso!")
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Erro ao aplicar segmentação:\n{erro}")
 
     def aplicar_realce(self):
         """Aplica a transformação de realce selecionada"""
