@@ -375,6 +375,15 @@ class Realce:
         img_yuv[:, :, 0] = canal_y_realcado
         
         return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+    
+    def correcao_gama(self, gamma):
+        img_norm = self.image_gray.astype(np.float32) / 255.0
+        
+        resultado_norm = cv2.pow(img_norm, gamma)
+        
+        resultado = np.clip(resultado_norm * 255.0, 0, 255).astype(np.uint8)
+        
+        return resultado
       
 if __name__ == "__main__":
     janela = tk.Tk()

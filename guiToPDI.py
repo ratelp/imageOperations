@@ -1484,6 +1484,7 @@ class ImageOperationGUI:
             ("Não-Linear - Exponencial", "nlinear_exponencial"),
             ("Não-Linear - Quadrado", "nlinear_quadrado"),
             ("Equalização de Histograma", "equalizacao_histograma"),
+            ("Ajuste de brilho - Correção Gama", "correcao_gama"),
         ]
 
         for label, valor in tipos_realce:
@@ -1590,6 +1591,17 @@ class ImageOperationGUI:
 
             tk.Label(self.frame_parametros_realce, text="g(x,y) = 255 * (f(x,y)/255)^γ — Escurece (γ>1) ou clareia (γ<1)", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
 
+        elif tipo == "correcao_gama":
+            tk.Label(self.frame_parametros_realce, text="Correção Gama", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+            
+            frame_gamma = tk.Frame(self.frame_parametros_realce)
+            frame_gamma.pack(fill="x", pady=5)
+            tk.Label(frame_gamma, text="Gama:", width=20).pack(side="left")
+            tk.Scale(frame_gamma, from_=0.1, to=3.0, orient="horizontal", variable=self.realce_gamma, resolution=0.1).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_gamma, text=f"{self.realce_gamma.get():.1f}", width=5).pack(side="left")
+
+            tk.Label(self.frame_parametros_realce, text="Aplica correção gama: g = 255*(f/255)^γ — ajuste fino do brilho", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
+
         elif tipo == "nlinear_quadrado":
             tk.Label(self.frame_parametros_realce, text="Transformação Quadrado", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
             tk.Label(self.frame_parametros_realce, text="g(x,y) = c * f(x,y)² (Gamma 2.0) — Escurece significativamente", font=("Arial", 8)).pack(anchor="w")
@@ -1683,6 +1695,12 @@ class ImageOperationGUI:
             elif tipo == "nlinear_exponencial":
                 resultado = realce.aplicar_com_cores(
                     realce.nlinear_exponencial,
+                    self.realce_gamma.get()
+                )
+
+            elif tipo == "correcao_gama":
+                resultado = realce.aplicar_com_cores(
+                    realce.correcao_gama,
                     self.realce_gamma.get()
                 )
 
