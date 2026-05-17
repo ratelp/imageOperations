@@ -784,7 +784,7 @@ class ImageOperationGUI:
         def atualizar_label(*args):
             valor_label.config(text=f"{var.get():.2f}")
 
-        var.trace("w", atualizar_label)
+        var.trace_add("write", atualizar_label)
         return slider
 
     def _limites_zoom_por_tipo(self, tipo_zoom):
