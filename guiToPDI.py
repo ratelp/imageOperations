@@ -75,6 +75,7 @@ class ImageOperationGUI:
         self.realce_g_max = tk.IntVar(value=255)
         self.realce_limiar = tk.IntVar(value=128)
         self.realce_gamma = tk.DoubleVar(value=1.5)
+        self.realce_bit_plane = tk.IntVar(value=0)
         self.linear_b_intervals = []
 
         self._criar_widgets()
@@ -1483,6 +1484,7 @@ class ImageOperationGUI:
             ("Não-Linear - Raiz", "nlinear_raiz"),
             ("Não-Linear - Exponencial", "nlinear_exponencial"),
             ("Não-Linear - Quadrado", "nlinear_quadrado"),
+            ("Fatiamento de Bits", "fatiamento_bits"),
             ("Equalização de Histograma", "equalizacao_histograma"),
             ("Ajuste de brilho - Correção Gama", "correcao_gama"),
         ]
@@ -1602,6 +1604,17 @@ class ImageOperationGUI:
 
             tk.Label(self.frame_parametros_realce, text="Aplica correção gama: g = 255*(f/255)^γ — ajuste fino do brilho", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
 
+        elif tipo == "fatiamento_bits":
+            tk.Label(self.frame_parametros_realce, text="Fatiamento de Bits", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+
+            frame_bit = tk.Frame(self.frame_parametros_realce)
+            frame_bit.pack(fill="x", pady=5)
+            tk.Label(frame_bit, text="Plano (0-7):", width=20).pack(side="left")
+            tk.Scale(frame_bit, from_=0, to=7, orient="horizontal", variable=self.realce_bit_plane).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_bit, textvariable=self.realce_bit_plane, width=4).pack(side="left")
+
+            tk.Label(self.frame_parametros_realce, text="Extrai o plano de bits especificado (0 = LSB, 7 = MSB)", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
+
         elif tipo == "nlinear_quadrado":
             tk.Label(self.frame_parametros_realce, text="Transformação Quadrado", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
             tk.Label(self.frame_parametros_realce, text="g(x,y) = c * f(x,y)² (Gamma 2.0) — Escurece significativamente", font=("Arial", 8)).pack(anchor="w")
@@ -1703,6 +1716,9 @@ class ImageOperationGUI:
                     realce.correcao_gama,
                     self.realce_gamma.get()
                 )
+
+            elif tipo == "fatiamento_bits":
+                resultado = realce.fatiamento_bits(self.realce_bit_plane.get())                               
 
             elif tipo == "nlinear_quadrado":
                 resultado = realce.aplicar_com_cores(realce.nlinear_quadrado)

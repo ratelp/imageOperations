@@ -384,6 +384,17 @@ class Realce:
         resultado = np.clip(resultado_norm * 255.0, 0, 255).astype(np.uint8)
         
         return resultado
+    
+    def fatiamento_bits(self, plano):
+        plano = max(0, min(7, plano))
+
+        mascara = 2 ** plano
+
+        fatiado = cv2.bitwise_and(self.image_gray, mascara)
+               
+        _, resultado = cv2.threshold(fatiado, 0, 255, cv2.THRESH_BINARY)
+
+        return resultado
       
 if __name__ == "__main__":
     janela = tk.Tk()
