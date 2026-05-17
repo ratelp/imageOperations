@@ -77,6 +77,14 @@ class ImageOperationGUI:
         self.realce_gamma = tk.DoubleVar(value=1.5)
         self.linear_b_intervals = []
 
+        # Variáveis para Filtros
+        self.imagem_para_filtros = None
+        self.filtro_tipo = tk.StringVar(value="Média")
+        self.filtro_tamanho = tk.IntVar(value=3)
+        self.filtro_modo_cor = tk.StringVar(value="yuv")
+        self.combo_filtro_tipo = None
+        self.frame_parametros_filtro = None
+
         self._criar_widgets()
 
     def _criar_widgets(self):
@@ -109,6 +117,11 @@ class ImageOperationGUI:
         frame_realce = ttk.Frame(notebook)
         notebook.add(frame_realce, text="Realce")
         self._criar_aba_realce(frame_realce)
+
+        # Aba 6: Filtros
+        frame_filtros = ttk.Frame(notebook)
+        notebook.add(frame_filtros, text="Filtros")
+        self._criar_aba_filtros(frame_filtros)
 
     def mostrar_original_e_resultado(self, titulo_original, img_original, titulo_resultado, img_result):
         """Mostra lado a lado (ou em janelas separadas) a imagem original e a imagem editada."""
@@ -1447,6 +1460,201 @@ class ImageOperationGUI:
                 cv2.imshow(f"Resultado - Operação ({operacao_escolhida})", resultado.image)
             except Exception:
                 pass
+
+    def _criar_aba_filtros(self, parent):
+        """Cria a aba para filtros passa-baixa"""
+        tk.Label(parent, text="Filtros", font=("Arial", 14, "bold")).pack(pady=15)
+
+        frame_selecao = tk.Frame(parent)
+        frame_selecao.pack(pady=10)
+
+        self.label_img_filtros = tk.Label(
+            frame_selecao,
+            text="Nenhuma imagem selecionada",
+            font=("Arial", 10),
+            foreground="red",
+        )
+        self.label_img_filtros.pack(side="left", padx=10)
+
+        tk.Button(
+            frame_selecao,
+            text="Selecionar Imagem",
+            command=self.selecionar_imagem_filtros,
+        ).pack(side="left", padx=10)
+
+        frame_modo_cor = tk.LabelFrame(
+            parent, text="Modo para imagens coloridas", padx=10, pady=8
+        )
+        frame_modo_cor.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Radiobutton(
+            frame_modo_cor,
+            text="YUV (filtrar luminância)",
+            variable=self.filtro_modo_cor,
+            value="yuv",
+        ).pack(anchor="w", padx=10)
+        tk.Radiobutton(
+            frame_modo_cor,
+            text="Canais individuais (RGB)",
+            variable=self.filtro_modo_cor,
+            value="channels",
+        ).pack(anchor="w", padx=10)
+
+        frame_tipo = tk.LabelFrame(parent, text="Filtro", padx=10, pady=8)
+        frame_tipo.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Label(frame_tipo, text="Selecione:").pack(side="left", padx=(0, 8))
+        self.combo_filtro_tipo = ttk.Combobox(
+            frame_tipo,
+            textvariable=self.filtro_tipo,
+            state="readonly",
+            width=30,
+        )
+        self.combo_filtro_tipo.pack(side="left", fill="x", expand=True)
+        self.combo_filtro_tipo.bind(
+            "<<ComboboxSelected>>", lambda _event: self._atualizar_parametros_filtro()
+        )
+
+        self.frame_parametros_filtro = tk.LabelFrame(
+            parent, text="Parâmetros", padx=10, pady=8
+        )
+        self.frame_parametros_filtro.pack(fill="x", padx=10, pady=(0, 10))
+
+        self._atualizar_opcoes_filtro()
+
+        tk.Button(
+            parent,
+            text="Aplicar Filtro",
+            command=self.aplicar_filtro,
+            bg="#212F22",
+            fg="white",
+            font=("Arial", 11, "bold"),
+        ).pack(pady=20, fill="x", padx=10)
+
+    def _opcoes_filtro_por_categoria(self):
+        return [
+            "Média",
+            "Mediana",
+            "Máximo",
+            "Mínimo",
+            "Moda",
+            "Kawahara",
+            "Tomita e Tsuji",
+            "Nagao e Matsuyama",
+            "Somboonkaew",
+        ]
+
+    def _atualizar_opcoes_filtro(self):
+        opcoes = self._opcoes_filtro_por_categoria()
+        if self.combo_filtro_tipo is not None:
+            self.combo_filtro_tipo.configure(values=opcoes)
+
+        if self.filtro_tipo.get() not in opcoes:
+            self.filtro_tipo.set(opcoes[0])
+
+        self._atualizar_parametros_filtro()
+
+    def _atualizar_parametros_filtro(self):
+        if self.frame_parametros_filtro is None:
+            return
+
+        for widget in self.frame_parametros_filtro.winfo_children():
+            widget.destroy()
+
+        tipo = self.filtro_tipo.get()
+
+        if tipo in {"Média", "Mediana"}:
+            tk.Label(self.frame_parametros_filtro, text="Tamanho da máscara:").pack(
+                anchor="w", pady=(0, 5)
+            )
+            tk.Radiobutton(
+                self.frame_parametros_filtro,
+                text="3x3",
+                variable=self.filtro_tamanho,
+                value=3,
+            ).pack(side="left", padx=10)
+            tk.Radiobutton(
+                self.frame_parametros_filtro,
+                text="5x5",
+                variable=self.filtro_tamanho,
+                value=5,
+            ).pack(side="left", padx=10)
+        else:
+            tk.Label(
+                self.frame_parametros_filtro,
+                text="Este filtro usa máscara fixa.",
+                font=("Arial", 9),
+            ).pack(anchor="w")
+
+    def selecionar_imagem_filtros(self):
+        """Seleciona uma imagem para filtros"""
+        from implementacaoPrimeiraUnidade import Image
+
+        caminho = filedialog.askopenfilename(
+            title="Selecione uma imagem",
+            filetypes=[
+                ("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+        if not caminho:
+            return
+
+        try:
+            self.imagem_para_filtros = Image(caminho)
+            self.label_img_filtros.config(
+                text=f"Imagem: {Path(caminho).name}",
+                foreground="green",
+            )
+            try:
+                self.imagem_para_filtros.showImage()
+            except Exception:
+                pass
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def aplicar_filtro(self):
+        """Aplica o filtro selecionado"""
+        from implementacaoPrimeiraUnidade import ImageFilter
+
+        if self.imagem_para_filtros is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+
+        try:
+            filtro = ImageFilter(
+                self.imagem_para_filtros,
+                color_mode=self.filtro_modo_cor.get(),
+            )
+            tipo = self.filtro_tipo.get()
+
+            if tipo == "Média":
+                resultado = filtro.media(self.filtro_tamanho.get())
+            elif tipo == "Mediana":
+                resultado = filtro.mediana(self.filtro_tamanho.get())
+            elif tipo == "Máximo":
+                resultado = filtro.maximo()
+            elif tipo == "Mínimo":
+                resultado = filtro.minimo()
+            elif tipo == "Moda":
+                resultado = filtro.moda()
+            elif tipo == "Kawahara":
+                resultado = filtro.kawahara()
+            elif tipo == "Tomita e Tsuji":
+                resultado = filtro.tomita_tsuji()
+            elif tipo == "Nagao e Matsuyama":
+                resultado = filtro.nagao_matsuyama()
+            elif tipo == "Somboonkaew":
+                resultado = filtro.somboonkaew()
+            else:
+                messagebox.showwarning("Aviso", "Selecione um filtro válido.")
+                return
+
+            cv2.imshow(f"Resultado - Filtro ({tipo})", resultado)
+            cv2.waitKey(1)
+            messagebox.showinfo("Sucesso", "Filtro aplicado com sucesso!")
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Erro ao aplicar filtro:\n{erro}")
 
     def _criar_aba_realce(self, parent):
         """Cria a aba para realce e transformações de contraste"""

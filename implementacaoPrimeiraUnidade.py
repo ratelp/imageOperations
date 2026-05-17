@@ -12,6 +12,7 @@ class Image:
 
     def showImage(self):
         cv2.imshow(self.imageName,self.image)
+        cv2.waitKey(1)
 
     def resizeImage(self, largura, altura):
         self.image = cv2.resize(self.image, (largura, altura))
@@ -277,6 +278,183 @@ class PseudoColorizer:
 
         colored = cv2.applyColorMap(gray, colormap_type)
         return colored
+
+class ImageFilter:
+    def __init__(self, image, color_mode="yuv"):
+        self.image = image.image
+        self.color_mode = color_mode
+
+    def _clip_uint8(self, image):
+        return np.clip(image, 0, 255).astype(np.uint8)
+
+    def _apply_to_gray_or_color(self, func):
+        if len(self.image.shape) == 2:
+            return func(self.image)
+
+        if self.color_mode == "channels":
+            channels = cv2.split(self.image)
+            filtered_channels = [func(channel) for channel in channels]
+            return cv2.merge(filtered_channels)
+
+        img_yuv = cv2.cvtColor(self.image, cv2.COLOR_BGR2YUV)
+        canal_y = img_yuv[:, :, 0]
+        img_yuv[:, :, 0] = func(canal_y)
+        return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+
+    def media(self, tamanho):
+        def aplicar_media(canal):
+            raio = tamanho // 2
+            padded = np.pad(canal, raio, mode="reflect").astype(np.float32)
+            resultado = np.zeros_like(canal, dtype=np.float32)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + tamanho, x : x + tamanho]
+                    resultado[y, x] = np.sum(janela) / (tamanho * tamanho)
+
+            return self._clip_uint8(np.round(resultado))
+
+        return self._apply_to_gray_or_color(aplicar_media)
+
+    def mediana(self, tamanho):
+        def aplicar_mediana(canal):
+            raio = tamanho // 2
+            padded = np.pad(canal, raio, mode="reflect")
+            resultado = np.zeros_like(canal)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + tamanho, x : x + tamanho].reshape(-1)
+                    resultado[y, x] = np.median(janela)
+
+            return resultado.astype(np.uint8)
+
+        return self._apply_to_gray_or_color(aplicar_mediana)
+
+    def maximo(self):
+        def aplicar_maximo(canal):
+            tamanho = 3
+            raio = tamanho // 2
+            padded = np.pad(canal, raio, mode="reflect")
+            resultado = np.zeros_like(canal)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + tamanho, x : x + tamanho]
+                    resultado[y, x] = np.max(janela)
+
+            return resultado
+
+        return self._apply_to_gray_or_color(aplicar_maximo)
+
+    def minimo(self):
+        def aplicar_minimo(canal):
+            tamanho = 3
+            raio = tamanho // 2
+            padded = np.pad(canal, raio, mode="reflect")
+            resultado = np.zeros_like(canal)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + tamanho, x : x + tamanho]
+                    resultado[y, x] = np.min(janela)
+
+            return resultado
+
+        return self._apply_to_gray_or_color(aplicar_minimo)
+
+    def moda(self):
+        def aplicar_moda(canal):
+            padded = cv2.copyMakeBorder(
+                canal, 1, 1, 1, 1, borderType=cv2.BORDER_REFLECT
+            )
+            resultado = np.zeros_like(canal)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + 3, x : x + 3].reshape(-1)
+                    contagens = np.bincount(janela, minlength=256)
+                    resultado[y, x] = np.argmax(contagens)
+
+            return resultado
+
+        return self._apply_to_gray_or_color(aplicar_moda)
+
+    def _filtro_variancia_minima(self, regioes):
+        def aplicar(canal):
+            raio = 2
+            padded = cv2.copyMakeBorder(
+                canal, raio, raio, raio, raio, borderType=cv2.BORDER_REFLECT
+            )
+            resultado = np.zeros_like(canal)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + 5, x : x + 5].astype(np.float32)
+                    melhor_media = 0
+                    menor_variancia = None
+
+                    for regiao_def in regioes:
+                        if isinstance(regiao_def[0], slice):
+                            linhas, colunas = regiao_def
+                            regiao = janela[linhas, colunas]
+                        else:
+                            coordenadas = tuple(zip(*regiao_def))
+                            regiao = janela[coordenadas]
+
+                        variancia = np.var(regiao)
+                        if menor_variancia is None or variancia < menor_variancia:
+                            menor_variancia = variancia
+                            melhor_media = np.mean(regiao)
+
+                    resultado[y, x] = np.clip(round(melhor_media), 0, 255)
+
+            return resultado.astype(np.uint8)
+
+        return self._apply_to_gray_or_color(aplicar)
+
+    def kawahara(self):
+        regioes = [
+            (slice(0, 3), slice(0, 3)),
+            (slice(0, 3), slice(2, 5)),
+            (slice(2, 5), slice(0, 3)),
+            (slice(2, 5), slice(2, 5)),
+        ]
+        return self._filtro_variancia_minima(regioes)
+
+    def tomita_tsuji(self):
+        regioes = [
+            (slice(0, 3), slice(0, 3)),
+            (slice(0, 3), slice(1, 4)),
+            (slice(0, 3), slice(2, 5)),
+            (slice(1, 4), slice(0, 3)),
+            (slice(1, 4), slice(1, 4)),
+            (slice(1, 4), slice(2, 5)),
+            (slice(2, 5), slice(0, 3)),
+            (slice(2, 5), slice(1, 4)),
+            (slice(2, 5), slice(2, 5)),
+        ]
+        return self._filtro_variancia_minima(regioes)
+
+    def nagao_matsuyama(self):
+        regioes = [
+            [(0, 1), (0, 2), (1, 0), (1, 1), (2, 0), (2, 1), (2, 2)],
+            [(0, 2), (0, 3), (1, 3), (1, 4), (2, 2), (2, 3), (2, 4)],
+            [(2, 0), (2, 1), (2, 2), (3, 0), (3, 1), (4, 1), (4, 2)],
+            [(2, 2), (2, 3), (2, 4), (3, 3), (3, 4), (4, 2), (4, 3)],
+            (slice(1, 4), slice(1, 4)),
+        ]
+        return self._filtro_variancia_minima(regioes)
+
+    def somboonkaew(self):
+        regioes = [
+            (slice(0, 3), slice(1, 4)),
+            (slice(2, 5), slice(1, 4)),
+            (slice(1, 4), slice(0, 3)),
+            (slice(1, 4), slice(2, 5)),
+            (slice(1, 4), slice(1, 4)),
+        ]
+        return self._filtro_variancia_minima(regioes)
 
 class Realce:
     def __init__(self, image):
