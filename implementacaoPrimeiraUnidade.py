@@ -550,6 +550,69 @@ class Segmentacao:
         resultado = cv2.normalize(max_response, None, 0, 255, cv2.NORM_MINMAX)
         return resultado.astype(np.uint8)
     
+    def limiarizacao_global(self):
+        img_float = self.image_gray.astype(np.float32)
+        
+        T = np.mean(img_float)
+        
+        while True:
+            R1 = img_float[img_float <= T]  # Fundo
+            R2 = img_float[img_float > T]   # Objeto
+            
+            mu1 = np.mean(R1) if len(R1) > 0 else 0
+            mu2 = np.mean(R2) if len(R2) > 0 else 0
+            
+            novo_T = (mu1 + mu2) / 2.0
+            
+            if abs(T - novo_T) < 1e-4:
+                break
+                
+            T = novo_T
+            
+        _, resultado = cv2.threshold(self.image_gray, int(T), 255, cv2.THRESH_BINARY)
+        return resultado.astype(np.uint8)
+
+    def limiarizacao_local(self, metodo, n, k=None, C=10):
+        if n % 2 == 0:
+            n += 1
+            
+        altura, largura = self.image_gray.shape
+        resultado = np.zeros((altura, largura), dtype=np.uint8)
+        
+        pad = n // 2
+        
+        img_padded = np.pad(self.image_gray.astype(np.float32), pad, mode='reflect')
+        
+        for i in range(altura):
+            for j in range(largura):
+                
+                vizinhanca = img_padded[i : i + n, j : j + n]
+                pixel_atual = self.image_gray[i, j]
+                
+                if metodo == 'media':
+                    T = np.mean(vizinhanca) - C
+                    
+                elif metodo == 'minimo':
+                    T = np.min(vizinhanca) + C
+                    
+                elif metodo == 'maximo':
+                    T = np.max(vizinhanca) - C
+                    
+                elif metodo == 'niblack':
+                    if k is None:
+                        raise ValueError("O parâmetro 'k' precisa ser informado para Niblack.")
+                    
+                    mu = np.mean(vizinhanca)
+                    sigma = np.std(vizinhanca) # Desvio padrão manual da matriz nxn
+                    T = mu + k * sigma
+                else:
+                    raise ValueError("Método inválido.")
+                
+                if pixel_atual > T:
+                    resultado[i, j] = 255
+                    
+        return resultado
+    
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)

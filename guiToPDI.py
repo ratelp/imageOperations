@@ -83,6 +83,10 @@ class ImageOperationGUI:
         self.segmentacao_mode = tk.StringVar(value="pontos")
         self.segmentacao_direcao = tk.StringVar(value="horizontal")
         self.segmentacao_metodo_borda = tk.StringVar(value="roberts")
+        self.segmentacao_tipo_lim = tk.StringVar(value="global")
+        self.segmentacao_metodo_lim = tk.StringVar(value="media")
+        self.segmentacao_n_lim = tk.IntVar(value=5)
+        self.segmentacao_k_lim = tk.DoubleVar(value=-0.2)
 
         self._criar_widgets()
 
@@ -1672,48 +1676,70 @@ class ImageOperationGUI:
 
         tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_segmentacao).pack(side="left", padx=10)
 
-        # Modo de segmentação
-        frame_mode = tk.Frame(parent)
-        frame_mode.pack(pady=6, fill="x", padx=10)
-        tk.Label(frame_mode, text="Modo:", width=12).pack(side="left")
+        # Modo de segmentação (vertical)
+        frame_tipo = tk.LabelFrame(parent, text="Modo de Segmentação", padx=10, pady=8)
+        frame_tipo.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Label(frame_tipo, text="Selecione o modo:", font=("Arial", 10)).pack(anchor="w")
+
         tk.Radiobutton(
-            frame_mode,
+            frame_tipo,
             text="Detecção de Pontos",
             variable=self.segmentacao_mode,
             value="pontos",
             command=self._atualizar_opcoes_segmentacao,
-        ).pack(side="left", padx=6)
+        ).pack(anchor="w", padx=10)
         tk.Radiobutton(
-            frame_mode,
+            frame_tipo,
             text="Detecção de Retas",
             variable=self.segmentacao_mode,
             value="retas",
             command=self._atualizar_opcoes_segmentacao,
-        ).pack(side="left", padx=6)
+        ).pack(anchor="w", padx=10)
         tk.Radiobutton(
-            frame_mode,
+            frame_tipo,
             text="Detecção de Bordas",
             variable=self.segmentacao_mode,
             value="bordas",
             command=self._atualizar_opcoes_segmentacao,
-        ).pack(side="left", padx=6)
+        ).pack(anchor="w", padx=10)
+        tk.Radiobutton(
+            frame_tipo,
+            text="Limiarização",
+            variable=self.segmentacao_mode,
+            value="limiarizacao",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(anchor="w", padx=10)
 
-        # Direção (usado para detecção de retas)
-        self.frame_segmentacao_direcao = tk.Frame(parent)
-        tk.Label(self.frame_segmentacao_direcao, text="Direção:", width=12).pack(side="left")
+        # Frame de parâmetros específicos
+        self.frame_parametros_segmentacao = tk.LabelFrame(parent, text="Parâmetros", padx=10, pady=8)
+        self.frame_parametros_segmentacao.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Parâmetro T geral (usado por pontos e retas)
+        frame_param_t = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_param_t, text="Limiar T:", width=15).pack(side="left")
+        tk.Scale(frame_param_t, from_=0, to=255, orient="horizontal", variable=self.segmentacao_T).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_param_t, textvariable=self.segmentacao_T, width=4).pack(side="left")
+        self.frame_param_t = frame_param_t
+
+        # Direção (para retas)
+        frame_dir = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_dir, text="Direção:", width=15).pack(side="left")
         combo_dir = ttk.Combobox(
-            self.frame_segmentacao_direcao,
+            frame_dir,
             values=["horizontal", "vertical", "45", "135"],
             state="readonly",
             textvariable=self.segmentacao_direcao,
             width=12,
         )
         combo_dir.pack(side="left", padx=5)
+        self.frame_param_direcao = frame_dir
 
-        self.frame_segmentacao_borda = tk.Frame(parent)
-        tk.Label(self.frame_segmentacao_borda, text="Método:", width=12).pack(side="left")
+        # Método de bordas
+        frame_borda = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_borda, text="Método:", width=15).pack(side="left")
         combo_borda = ttk.Combobox(
-            self.frame_segmentacao_borda,
+            frame_borda,
             values=[
                 "roberts",
                 "roberts_cruzado",
@@ -1731,33 +1757,97 @@ class ImageOperationGUI:
             ],
             state="readonly",
             textvariable=self.segmentacao_metodo_borda,
-            width=18,
+            width=20,
         )
         combo_borda.pack(side="left", padx=5)
+        self.frame_param_borda = frame_borda
 
-        frame_param = tk.Frame(parent)
-        frame_param.pack(pady=10, fill="x", padx=10)
+        # Tipo de limiarização (global/local)
+        frame_lim_tipo = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_tipo, text="Tipo de Lim.:", width=15).pack(side="left")
+        tk.Radiobutton(
+            frame_lim_tipo,
+            text="Global",
+            variable=self.segmentacao_tipo_lim,
+            value="global",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(side="left", padx=3)
+        tk.Radiobutton(
+            frame_lim_tipo,
+            text="Local",
+            variable=self.segmentacao_tipo_lim,
+            value="local",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(side="left", padx=3)
+        self.frame_param_lim_tipo = frame_lim_tipo
 
-        tk.Label(frame_param, text="Limiar T:", width=12).pack(side="left")
-        tk.Scale(frame_param, from_=0, to=255, orient="horizontal", variable=self.segmentacao_T).pack(side="left", fill="x", expand=True, padx=5)
-        tk.Label(frame_param, textvariable=self.segmentacao_T, width=4).pack(side="left")
+        # Método de limiarização local
+        frame_lim_metodo = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_metodo, text="Método:", width=15).pack(side="left")
+        combo_lim = ttk.Combobox(
+            frame_lim_metodo,
+            values=["media", "minimo", "maximo", "niblack"],
+            state="readonly",
+            textvariable=self.segmentacao_metodo_lim,
+            width=12,
+        )
+        combo_lim.pack(side="left", padx=5)
+        combo_lim.bind("<<ComboboxSelected>>", lambda e: self._atualizar_opcoes_segmentacao())
+        self.frame_param_lim_metodo = frame_lim_metodo
 
+        # Vizinhança (n)
+        frame_lim_n = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_n, text="Vizinhança (n):", width=15).pack(side="left")
+        tk.Scale(frame_lim_n, from_=3, to=21, orient="horizontal", variable=self.segmentacao_n_lim).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_lim_n, textvariable=self.segmentacao_n_lim, width=3).pack(side="left")
+        self.frame_param_lim_n = frame_lim_n
+
+        # K para Niblack
+        frame_lim_k = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_k, text="K (Niblack):", width=15).pack(side="left")
+        tk.Scale(frame_lim_k, from_=-1.0, to=0.0, orient="horizontal", resolution=0.1, variable=self.segmentacao_k_lim).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_lim_k, textvariable=self.segmentacao_k_lim, width=5).pack(side="left")
+        self.frame_param_lim_k = frame_lim_k
+
+        # Botão Aplicar
         btn_aplicar = tk.Button(parent, text="Aplicar Segmentação", command=self.aplicar_segmentacao, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
         btn_aplicar.pack(pady=20, fill="x", padx=10)
 
         self._atualizar_opcoes_segmentacao()
 
     def _atualizar_opcoes_segmentacao(self):
-        if not hasattr(self, "frame_segmentacao_direcao") or not hasattr(self, "frame_segmentacao_borda"):
-            return
+        """Atualiza a visibilidade dos controles baseado no modo selecionado"""
+        # Limpa a visibilidade de todos os frames
+        self.frame_param_t.pack_forget()
+        self.frame_param_direcao.pack_forget()
+        self.frame_param_borda.pack_forget()
+        self.frame_param_lim_tipo.pack_forget()
+        self.frame_param_lim_metodo.pack_forget()
+        self.frame_param_lim_n.pack_forget()
+        self.frame_param_lim_k.pack_forget()
 
-        self.frame_segmentacao_direcao.pack_forget()
-        self.frame_segmentacao_borda.pack_forget()
+        modo = self.segmentacao_mode.get()
 
-        if self.segmentacao_mode.get() == "retas":
-            self.frame_segmentacao_direcao.pack(pady=6, fill="x", padx=10)
-        elif self.segmentacao_mode.get() == "bordas":
-            self.frame_segmentacao_borda.pack(pady=6, fill="x", padx=10)
+        if modo == "pontos":
+            self.frame_param_t.pack(fill="x", pady=5)
+
+        elif modo == "retas":
+            self.frame_param_t.pack(fill="x", pady=5)
+            self.frame_param_direcao.pack(fill="x", pady=5)
+
+        elif modo == "bordas":
+            self.frame_param_borda.pack(fill="x", pady=5)
+
+        elif modo == "limiarizacao":
+            self.frame_param_lim_tipo.pack(fill="x", pady=5)
+            
+            if self.segmentacao_tipo_lim.get() == "local":
+                self.frame_param_lim_metodo.pack(fill="x", pady=5)
+                self.frame_param_lim_n.pack(fill="x", pady=5)
+                
+                if self.segmentacao_metodo_lim.get() == "niblack":
+                    self.frame_param_lim_k.pack(fill="x", pady=5)
+
 
     def selecionar_imagem_segmentacao(self):
         from implementacaoPrimeiraUnidade import Image
@@ -1791,10 +1881,23 @@ class ImageOperationGUI:
                 direcao = self.segmentacao_direcao.get()
                 resultado = seg.deteccao_retas(direcao, self.segmentacao_T.get())
                 win_title = f"Segmentacao (Deteccao de Retas - {direcao})"
-            else:
+            elif self.segmentacao_mode.get() == "bordas":
                 metodo = self.segmentacao_metodo_borda.get()
                 resultado = seg.deteccao_bordas(metodo)
                 win_title = f"Segmentacao (Deteccao de Bordas - {metodo})"
+            else:
+                if self.segmentacao_tipo_lim.get() == "global":
+                    resultado = seg.limiarizacao_global()
+                    win_title = "Segmentacao (Limiarizacao Global)"
+                else:
+                    metodo = self.segmentacao_metodo_lim.get()
+                    n = self.segmentacao_n_lim.get()
+                    if metodo == "niblack":
+                        k = self.segmentacao_k_lim.get()
+                        resultado = seg.limiarizacao_local(metodo, n, k)
+                    else:
+                        resultado = seg.limiarizacao_local(metodo, n)
+                    win_title = f"Segmentacao (Limiarizacao Local - {metodo})"
 
             try:
                 cv2.imshow(win_title, resultado)
