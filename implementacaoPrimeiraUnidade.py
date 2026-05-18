@@ -467,9 +467,9 @@ class ImageFilter:
         mascaras = {
             "H1": np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]], dtype=np.float32),
             "H2": np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], dtype=np.float32),
-            "M1": np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32),
-            "M2": np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]], dtype=np.float32),
-            "M3": np.array([[1, -2, 1], [-2, 5, -2], [1, -2, 1]], dtype=np.float32),
+            "M1": np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]], dtype=np.float32),
+            "M2": np.array([[1, -2, 1], [-2, 5, -2], [1, -2, 1]], dtype=np.float32),
+            "M3": np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32),
         }
         kernel = mascaras[mascara]
 
