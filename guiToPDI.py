@@ -75,7 +75,18 @@ class ImageOperationGUI:
         self.realce_g_max = tk.IntVar(value=255)
         self.realce_limiar = tk.IntVar(value=128)
         self.realce_gamma = tk.DoubleVar(value=1.5)
+        self.realce_bit_plane = tk.IntVar(value=0)
         self.linear_b_intervals = []
+        # Variáveis para Segmentação
+        self.imagem_para_segmentacao = None
+        self.segmentacao_T = tk.IntVar(value=50)
+        self.segmentacao_mode = tk.StringVar(value="pontos")
+        self.segmentacao_direcao = tk.StringVar(value="horizontal")
+        self.segmentacao_metodo_borda = tk.StringVar(value="roberts")
+        self.segmentacao_tipo_lim = tk.StringVar(value="global")
+        self.segmentacao_metodo_lim = tk.StringVar(value="media")
+        self.segmentacao_n_lim = tk.IntVar(value=5)
+        self.segmentacao_k_lim = tk.DoubleVar(value=-0.2)
 
         # Variáveis para Filtros
         self.imagem_para_filtros = None
@@ -126,12 +137,17 @@ class ImageOperationGUI:
         notebook.add(frame_realce, text="Realce")
         self._criar_aba_realce(frame_realce)
 
-        # Aba 6: Filtros
+        # Aba 6: Segmentação
+        frame_segmentacao = ttk.Frame(notebook)
+        notebook.add(frame_segmentacao, text="Segmentação")
+        self._criar_aba_segmentacao(frame_segmentacao)
+
+        # Aba 7: Filtros
         frame_filtros = ttk.Frame(notebook)
         notebook.add(frame_filtros, text="Filtros")
         self._criar_aba_filtros(frame_filtros)
 
-        # Aba 7: Meio-tom
+        # Aba 8: Meio-tom
         frame_meio_tom = ttk.Frame(notebook)
         notebook.add(frame_meio_tom, text="Meio-tom")
         self._criar_aba_meio_tom(frame_meio_tom)
@@ -1879,7 +1895,9 @@ class ImageOperationGUI:
             ("Não-Linear - Raiz", "nlinear_raiz"),
             ("Não-Linear - Exponencial", "nlinear_exponencial"),
             ("Não-Linear - Quadrado", "nlinear_quadrado"),
+            ("Fatiamento de Bits", "fatiamento_bits"),
             ("Equalização de Histograma", "equalizacao_histograma"),
+            ("Ajuste de brilho - Correção Gama", "correcao_gama"),
         ]
 
         for label, valor in tipos_realce:
@@ -1918,7 +1936,7 @@ class ImageOperationGUI:
 
         if tipo == "linear_a_mapeamento":
             tk.Label(self.frame_parametros_realce, text="Mapeamento Linear (f → g)", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
-            
+
             frame_g_min = tk.Frame(self.frame_parametros_realce)
             frame_g_min.pack(fill="x", pady=5)
             tk.Label(frame_g_min, text="g_min (saída mínima):", width=20).pack(side="left")
@@ -1958,7 +1976,7 @@ class ImageOperationGUI:
 
         elif tipo == "linear_d_binaria":
             tk.Label(self.frame_parametros_realce, text="Transformação Binária (Thresholding)", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
-            
+
             frame_limiar = tk.Frame(self.frame_parametros_realce)
             frame_limiar.pack(fill="x", pady=5)
             tk.Label(frame_limiar, text="Limiar:", width=20).pack(side="left")
@@ -1977,7 +1995,7 @@ class ImageOperationGUI:
 
         elif tipo == "nlinear_exponencial":
             tk.Label(self.frame_parametros_realce, text="Transformação Exponencial", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
-            
+
             frame_gamma = tk.Frame(self.frame_parametros_realce)
             frame_gamma.pack(fill="x", pady=5)
             tk.Label(frame_gamma, text="Gamma:", width=20).pack(side="left")
@@ -1985,6 +2003,28 @@ class ImageOperationGUI:
             tk.Label(frame_gamma, text=f"{self.realce_gamma.get():.1f}", width=5).pack(side="left")
 
             tk.Label(self.frame_parametros_realce, text="g(x,y) = 255 * (f(x,y)/255)^γ — Escurece (γ>1) ou clareia (γ<1)", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
+
+        elif tipo == "correcao_gama":
+            tk.Label(self.frame_parametros_realce, text="Correção Gama", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+
+            frame_gamma = tk.Frame(self.frame_parametros_realce)
+            frame_gamma.pack(fill="x", pady=5)
+            tk.Label(frame_gamma, text="Gama:", width=20).pack(side="left")
+            tk.Scale(frame_gamma, from_=0.1, to=3.0, orient="horizontal", variable=self.realce_gamma, resolution=0.1).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_gamma, text=f"{self.realce_gamma.get():.1f}", width=5).pack(side="left")
+
+            tk.Label(self.frame_parametros_realce, text="Aplica correção gama: g = 255*(f/255)^γ — ajuste fino do brilho", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
+
+        elif tipo == "fatiamento_bits":
+            tk.Label(self.frame_parametros_realce, text="Fatiamento de Bits", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
+
+            frame_bit = tk.Frame(self.frame_parametros_realce)
+            frame_bit.pack(fill="x", pady=5)
+            tk.Label(frame_bit, text="Plano (0-7):", width=20).pack(side="left")
+            tk.Scale(frame_bit, from_=0, to=7, orient="horizontal", variable=self.realce_bit_plane).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_bit, textvariable=self.realce_bit_plane, width=4).pack(side="left")
+
+            tk.Label(self.frame_parametros_realce, text="Extrai o plano de bits especificado (0 = LSB, 7 = MSB)", font=("Arial", 8, "italic")).pack(anchor="w", pady=(10, 0))
 
         elif tipo == "nlinear_quadrado":
             tk.Label(self.frame_parametros_realce, text="Transformação Quadrado", font=("Arial", 9, "bold")).pack(anchor="w", pady=(5, 10))
@@ -2020,6 +2060,248 @@ class ImageOperationGUI:
                 pass
         except Exception as erro:
             messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def _criar_aba_segmentacao(self, parent):
+        tk.Label(parent, text="Segmentação de Imagem", font=("Arial", 14, "bold")).pack(pady=15)
+
+        frame_selecao = tk.Frame(parent)
+        frame_selecao.pack(pady=10)
+
+        self.label_img_segmentacao = tk.Label(frame_selecao, text="Nenhuma imagem selecionada", font=("Arial", 10), foreground="red")
+        self.label_img_segmentacao.pack(side="left", padx=10)
+
+        tk.Button(frame_selecao, text="Selecionar Imagem", command=self.selecionar_imagem_segmentacao).pack(side="left", padx=10)
+
+        # Modo de segmentação (vertical)
+        frame_tipo = tk.LabelFrame(parent, text="Modo de Segmentação", padx=10, pady=8)
+        frame_tipo.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Label(frame_tipo, text="Selecione o modo:", font=("Arial", 10)).pack(anchor="w")
+
+        tk.Radiobutton(
+            frame_tipo,
+            text="Detecção de Pontos",
+            variable=self.segmentacao_mode,
+            value="pontos",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(anchor="w", padx=10)
+        tk.Radiobutton(
+            frame_tipo,
+            text="Detecção de Retas",
+            variable=self.segmentacao_mode,
+            value="retas",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(anchor="w", padx=10)
+        tk.Radiobutton(
+            frame_tipo,
+            text="Detecção de Bordas",
+            variable=self.segmentacao_mode,
+            value="bordas",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(anchor="w", padx=10)
+        tk.Radiobutton(
+            frame_tipo,
+            text="Limiarização",
+            variable=self.segmentacao_mode,
+            value="limiarizacao",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(anchor="w", padx=10)
+
+        # Frame de parâmetros específicos
+        self.frame_parametros_segmentacao = tk.LabelFrame(parent, text="Parâmetros", padx=10, pady=8)
+        self.frame_parametros_segmentacao.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Parâmetro T geral (usado por pontos e retas)
+        frame_param_t = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_param_t, text="Limiar T:", width=15).pack(side="left")
+        tk.Scale(frame_param_t, from_=0, to=255, orient="horizontal", variable=self.segmentacao_T).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_param_t, textvariable=self.segmentacao_T, width=4).pack(side="left")
+        self.frame_param_t = frame_param_t
+
+        # Direção (para retas)
+        frame_dir = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_dir, text="Direção:", width=15).pack(side="left")
+        combo_dir = ttk.Combobox(
+            frame_dir,
+            values=["horizontal", "vertical", "45", "135"],
+            state="readonly",
+            textvariable=self.segmentacao_direcao,
+            width=12,
+        )
+        combo_dir.pack(side="left", padx=5)
+        self.frame_param_direcao = frame_dir
+
+        # Método de bordas
+        frame_borda = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_borda, text="Método:", width=15).pack(side="left")
+        combo_borda = ttk.Combobox(
+            frame_borda,
+            values=[
+                "roberts",
+                "roberts_cruzado",
+                "prewitt_gx",
+                "prewitt_gy",
+                "prewitt_magnitude",
+                "sobel_gx",
+                "sobel_gy",
+                "sobel_magnitude",
+                "kirsch",
+                "robinson",
+                "frei_chen",
+                "laplaciano_h1",
+                "laplaciano_h2",
+            ],
+            state="readonly",
+            textvariable=self.segmentacao_metodo_borda,
+            width=20,
+        )
+        combo_borda.pack(side="left", padx=5)
+        self.frame_param_borda = frame_borda
+
+        # Tipo de limiarização (global/local)
+        frame_lim_tipo = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_tipo, text="Tipo de Lim.:", width=15).pack(side="left")
+        tk.Radiobutton(
+            frame_lim_tipo,
+            text="Global",
+            variable=self.segmentacao_tipo_lim,
+            value="global",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(side="left", padx=3)
+        tk.Radiobutton(
+            frame_lim_tipo,
+            text="Local",
+            variable=self.segmentacao_tipo_lim,
+            value="local",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(side="left", padx=3)
+        self.frame_param_lim_tipo = frame_lim_tipo
+
+        # Método de limiarização local
+        frame_lim_metodo = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_metodo, text="Método:", width=15).pack(side="left")
+        combo_lim = ttk.Combobox(
+            frame_lim_metodo,
+            values=["media", "minimo", "maximo", "niblack"],
+            state="readonly",
+            textvariable=self.segmentacao_metodo_lim,
+            width=12,
+        )
+        combo_lim.pack(side="left", padx=5)
+        combo_lim.bind("<<ComboboxSelected>>", lambda e: self._atualizar_opcoes_segmentacao())
+        self.frame_param_lim_metodo = frame_lim_metodo
+
+        # Vizinhança (n)
+        frame_lim_n = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_n, text="Vizinhança (n):", width=15).pack(side="left")
+        tk.Scale(frame_lim_n, from_=3, to=21, orient="horizontal", variable=self.segmentacao_n_lim).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_lim_n, textvariable=self.segmentacao_n_lim, width=3).pack(side="left")
+        self.frame_param_lim_n = frame_lim_n
+
+        # K para Niblack
+        frame_lim_k = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_lim_k, text="K (Niblack):", width=15).pack(side="left")
+        tk.Scale(frame_lim_k, from_=-1.0, to=0.0, orient="horizontal", resolution=0.1, variable=self.segmentacao_k_lim).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_lim_k, textvariable=self.segmentacao_k_lim, width=5).pack(side="left")
+        self.frame_param_lim_k = frame_lim_k
+
+        # Botão Aplicar
+        btn_aplicar = tk.Button(parent, text="Aplicar Segmentação", command=self.aplicar_segmentacao, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
+        btn_aplicar.pack(pady=20, fill="x", padx=10)
+
+        self._atualizar_opcoes_segmentacao()
+
+    def _atualizar_opcoes_segmentacao(self):
+        """Atualiza a visibilidade dos controles baseado no modo selecionado"""
+        # Limpa a visibilidade de todos os frames
+        self.frame_param_t.pack_forget()
+        self.frame_param_direcao.pack_forget()
+        self.frame_param_borda.pack_forget()
+        self.frame_param_lim_tipo.pack_forget()
+        self.frame_param_lim_metodo.pack_forget()
+        self.frame_param_lim_n.pack_forget()
+        self.frame_param_lim_k.pack_forget()
+
+        modo = self.segmentacao_mode.get()
+
+        if modo == "pontos":
+            self.frame_param_t.pack(fill="x", pady=5)
+
+        elif modo == "retas":
+            self.frame_param_t.pack(fill="x", pady=5)
+            self.frame_param_direcao.pack(fill="x", pady=5)
+
+        elif modo == "bordas":
+            self.frame_param_borda.pack(fill="x", pady=5)
+
+        elif modo == "limiarizacao":
+            self.frame_param_lim_tipo.pack(fill="x", pady=5)
+
+            if self.segmentacao_tipo_lim.get() == "local":
+                self.frame_param_lim_metodo.pack(fill="x", pady=5)
+                self.frame_param_lim_n.pack(fill="x", pady=5)
+
+                if self.segmentacao_metodo_lim.get() == "niblack":
+                    self.frame_param_lim_k.pack(fill="x", pady=5)
+
+
+    def selecionar_imagem_segmentacao(self):
+        from implementacaoPrimeiraUnidade import Image
+
+        caminho = filedialog.askopenfilename(title="Selecione uma imagem", filetypes=[("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"), ("Todos os arquivos", "*.*")])
+        if not caminho:
+            return
+        try:
+            self.imagem_para_segmentacao = Image(caminho)
+            self.label_img_segmentacao.config(text=Path(caminho).name, foreground="green")
+            try:
+                self.imagem_para_segmentacao.showImage()
+            except Exception:
+                pass
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def aplicar_segmentacao(self):
+        from implementacaoPrimeiraUnidade import Segmentacao
+
+        if self.imagem_para_segmentacao is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+
+        try:
+            seg = Segmentacao(self.imagem_para_segmentacao)
+            if self.segmentacao_mode.get() == "pontos":
+                resultado = seg.deteccao_pontos(self.segmentacao_T.get())
+                win_title = "Segmentacao (Deteccao de Pontos)"
+            elif self.segmentacao_mode.get() == "retas":
+                direcao = self.segmentacao_direcao.get()
+                resultado = seg.deteccao_retas(direcao, self.segmentacao_T.get())
+                win_title = f"Segmentacao (Deteccao de Retas - {direcao})"
+            elif self.segmentacao_mode.get() == "bordas":
+                metodo = self.segmentacao_metodo_borda.get()
+                resultado = seg.deteccao_bordas(metodo)
+                win_title = f"Segmentacao (Deteccao de Bordas - {metodo})"
+            else:
+                if self.segmentacao_tipo_lim.get() == "global":
+                    resultado = seg.limiarizacao_global()
+                    win_title = "Segmentacao (Limiarizacao Global)"
+                else:
+                    metodo = self.segmentacao_metodo_lim.get()
+                    n = self.segmentacao_n_lim.get()
+                    if metodo == "niblack":
+                        k = self.segmentacao_k_lim.get()
+                        resultado = seg.limiarizacao_local(metodo, n, k)
+                    else:
+                        resultado = seg.limiarizacao_local(metodo, n)
+                    win_title = f"Segmentacao (Limiarizacao Local - {metodo})"
+
+            try:
+                cv2.imshow(win_title, resultado)
+            except Exception:
+                pass
+            messagebox.showinfo("Sucesso", "Segmentação aplicada com sucesso!")
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Erro ao aplicar segmentação:\n{erro}")
 
     def aplicar_realce(self):
         """Aplica a transformação de realce selecionada"""
@@ -2081,6 +2363,15 @@ class ImageOperationGUI:
                     realce.nlinear_exponencial,
                     self.realce_gamma.get()
                 )
+
+            elif tipo == "correcao_gama":
+                resultado = realce.aplicar_com_cores(
+                    realce.correcao_gama,
+                    self.realce_gamma.get()
+                )
+
+            elif tipo == "fatiamento_bits":
+                resultado = realce.fatiamento_bits(self.realce_bit_plane.get())
 
             elif tipo == "nlinear_quadrado":
                 resultado = realce.aplicar_com_cores(realce.nlinear_quadrado)

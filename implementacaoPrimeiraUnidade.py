@@ -20,7 +20,7 @@ class Image:
 class ImageOperation:
     def __init__(self, image1, image2, operator):
         image1_float = image1.image.astype(np.int32)
-        image2_float = image2.image.astype(np.int32) 
+        image2_float = image2.image.astype(np.int32)
 
         result = operator(image1_float, image2_float)
 
@@ -50,20 +50,20 @@ class ImageTransformer:
         self.imagem_preview = cv2.warpAffine(self.imagem_preview, matriz, (largura, altura))
 
         return self.imagem_preview
-    
+
     def transladar(self, deslocamento_x, deslocamento_y):
         if deslocamento_x == 0 and deslocamento_y == 0:
             return self.imagem_preview
-            
+
         altura, largura = self.imagem_preview.shape[:2]
-        
+
         matriz = np.float32([
             [1, 0, deslocamento_x],
             [0, 1, deslocamento_y]
         ])
-        
+
         self.imagem_preview = cv2.warpAffine(self.imagem_preview, matriz, (largura, altura))
-        
+
         return self.imagem_preview
 
     def escalar(self, fator_x, fator_y):
@@ -72,14 +72,14 @@ class ImageTransformer:
 
         if fator_x == 1 and fator_y == 1:
             return self.imagem_preview
-            
+
         altura, largura = self.imagem_preview.shape[:2]
-        
+
         nova_largura = int(largura * fator_x)
         nova_altura = int(altura * fator_y)
-        
+
         self.imagem_preview = cv2.resize(self.imagem_preview, (nova_largura, nova_altura))
-        
+
         return self.imagem_preview
 
     def refletir(self, eixo):
@@ -91,29 +91,29 @@ class ImageTransformer:
             self.imagem_preview = cv2.flip(self.imagem_preview, 0)
         elif eixo == 'ambos':
             self.imagem_preview = cv2.flip(self.imagem_preview, -1)
-            
+
         return self.imagem_preview
 
     def cisalhar(self, fator_x, fator_y):
         if fator_x == 0 and fator_y == 0:
             return self.imagem_preview
-            
+
         altura, largura = self.imagem_preview.shape[:2]
-        
+
         matriz = np.float32([
             [1, fator_x, 0],
             [fator_y, 1, 0]
         ])
-        
+
         self.imagem_preview = cv2.warpAffine(self.imagem_preview, matriz, (largura, altura))
-        
+
         return self.imagem_preview
 
 
     def zoom_in_replicacao(self, fator_zoom):
         if fator_zoom <= 1.0:
             return self.imagem_preview
-        
+
         altura, largura = self.imagem_preview.shape[:2]
 
         nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
@@ -121,22 +121,22 @@ class ImageTransformer:
         self.imagem_preview = cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_NEAREST)
 
         return self.imagem_preview
-        
+
     def zoom_in_interpolacao(self, fator_zoom):
         if fator_zoom <= 1.0:
             return self.imagem_preview
-        
+
         altura, largura = self.imagem_preview.shape[:2]
 
         nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
         self.imagem_preview = cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_LINEAR)
 
         return self.imagem_preview
-    
+
     def zoom_out_exclusao(self, fator_zoom):
         if fator_zoom >= 1.0:
             return self.imagem_preview
-        
+
         altura, largura = self.imagem_preview.shape[:2]
         nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
 
@@ -147,13 +147,13 @@ class ImageTransformer:
     def zoom_out_valor_medio(self, fator_zoom):
         if fator_zoom >= 1.0:
             return self.imagem_preview
-        
+
         altura, largura = self.imagem_preview.shape[:2]
         nova_dim = (int(largura*fator_zoom),int(altura*fator_zoom))
 
         self.imagem_preview =cv2.resize(self.imagem_preview, nova_dim, interpolation=cv2.INTER_AREA)
 
-        return self.imagem_preview     
+        return self.imagem_preview
 
 class ColorSpaceDecomposer:
     def __init__(self, image):
@@ -630,7 +630,7 @@ class Halftoning:
 class Realce:
     def __init__(self, image):
         self.image = image.image
-        
+
         # passando para escala de cinza
         if len(self.image.shape) == 3:
             self.image_gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
@@ -640,28 +640,28 @@ class Realce:
     def linear_a_mapeamento(self, g_min, g_max):
         f_min = np.min(self.image_gray)
         f_max = np.max(self.image_gray)
-        
+
         img_float = self.image_gray.astype(np.float32)
-        
-        if f_max > f_min: 
+
+        if f_max > f_min:
             resultado = ((img_float - f_min) / (f_max - f_min)) * (g_max - g_min) + g_min
         else:
             resultado = img_float
-            
+
         return np.clip(resultado, 0, 255).astype(np.uint8)
 
     def linear_b_partes(self, intervalos):
         img_float = self.image_gray.astype(np.float32)
         resultado = np.zeros_like(img_float)
-        
+
         for f_min, f_max, g_min, g_max in intervalos:
             mask = (img_float >= f_min) & (img_float <= f_max)
-            
+
             if f_max > f_min:
                 resultado[mask] = ((img_float[mask] - f_min) / (f_max - f_min)) * (g_max - g_min) + g_min
             else:
                 resultado[mask] = g_min
-                
+
         return np.clip(resultado, 0, 255).astype(np.uint8)
 
     def linear_c_inversa(self):
@@ -673,33 +673,33 @@ class Realce:
 
     def nlinear_logaritmica(self):
         img_float = self.image_gray.astype(np.float32)
-        
+
         c = 255.0 / np.log(1 + np.max(img_float))
-        
+
         resultado = c * np.log(1 + img_float)
         return np.clip(resultado, 0, 255).astype(np.uint8)
 
     def nlinear_raiz(self):
         img_float = self.image_gray.astype(np.float32)
-        
+
         c = 255.0 / np.sqrt(np.max(img_float))
-        
+
         resultado = c * np.sqrt(img_float)
         return np.clip(resultado, 0, 255).astype(np.uint8)
 
     def nlinear_exponencial(self, gamma=1.5):
         img_float = self.image_gray.astype(np.float32)
-        
+
         img_norm = img_float / 255.0
         resultado = 255.0 * (img_norm ** gamma)
-        
+
         return np.clip(resultado, 0, 255).astype(np.uint8)
 
     def nlinear_quadrado(self):
         img_float = self.image_gray.astype(np.float32)
-        
+
         c = 255.0 / (np.max(img_float) ** 2)
-        
+
         resultado = c * (img_float ** 2)
         return np.clip(resultado, 0, 255).astype(np.uint8)
 
@@ -711,20 +711,257 @@ class Realce:
             return func_transformacao(*args)
 
         img_yuv = cv2.cvtColor(self.image, cv2.COLOR_BGR2YUV)
-        
+
         canal_y = img_yuv[:, :, 0]
-        
+
         backup_gray = self.image_gray
         self.image_gray = canal_y
-        
+
         canal_y_realcado = func_transformacao(*args)
-        
+
         self.image_gray = backup_gray
-        
+
         img_yuv[:, :, 0] = canal_y_realcado
-        
+
         return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
-      
+
+    def correcao_gama(self, gamma):
+        img_norm = self.image_gray.astype(np.float32) / 255.0
+
+        resultado_norm = cv2.pow(img_norm, gamma)
+
+        resultado = np.clip(resultado_norm * 255.0, 0, 255).astype(np.uint8)
+
+        return resultado
+
+    def fatiamento_bits(self, plano):
+        plano = max(0, min(7, plano))
+
+        mascara = 2 ** plano
+
+        fatiado = cv2.bitwise_and(self.image_gray, mascara)
+
+        _, resultado = cv2.threshold(fatiado, 0, 255, cv2.THRESH_BINARY)
+
+        return resultado
+
+class Segmentacao:
+    def __init__(self, image):
+        self.image = image.image
+
+        if len(self.image.shape) == 3:
+            self.image_gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        else:
+            self.image_gray = self.image.copy()
+
+    def deteccao_pontos(self, T):
+        kernel = np.array([[-1, -1, -1],
+                           [-1,  8, -1],
+                           [-1, -1, -1]], dtype=np.float32)
+
+        R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+
+        R_abs = np.abs(R)
+
+        _, resultado = cv2.threshold(R_abs, T, 255, cv2.THRESH_BINARY)
+
+        return resultado.astype(np.uint8)
+
+    def deteccao_retas(self, direcao, T):
+        if direcao == 'horizontal':
+            kernel = np.array([[-1, -1, -1],
+                               [ 2,  2,  2],
+                               [-1, -1, -1]], dtype=np.float32)
+
+        elif direcao == 'vertical':
+            kernel = np.array([[-1,  2, -1],
+                               [-1,  2, -1],
+                               [-1,  2, -1]], dtype=np.float32)
+
+        elif direcao == '45':
+            kernel = np.array([[-1, -1,  2],
+                               [-1,  2, -1],
+                               [ 2, -1, -1]], dtype=np.float32)
+
+        elif direcao == '135':
+            kernel = np.array([[ 2, -1, -1],
+                               [-1,  2, -1],
+                               [-1, -1,  2]], dtype=np.float32)
+        else:
+            raise ValueError("Direção inválida. Escolha entre: 'horizontal', 'vertical', '45', '135'")
+
+        R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+
+        R_abs = np.abs(R)
+
+        _, resultado = cv2.threshold(R_abs, T, 255, cv2.THRESH_BINARY)
+
+        return resultado.astype(np.uint8)
+
+    def deteccao_bordas(self, metodo):
+        if metodo == 'roberts':
+            kernel_x = np.array([[-1, 0], [0, 1]], dtype=np.float32)
+            kernel_y = np.array([[0, -1], [1, 0]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'roberts_cruzado':
+            kernel_x = np.array([[1, 0], [0, -1]], dtype=np.float32)
+            kernel_y = np.array([[0, 1], [-1, 0]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'prewitt_gx':
+            kernel_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_x)
+        elif metodo == 'prewitt_gy':
+            kernel_y = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_y)
+        elif metodo == 'prewitt_magnitude':
+            kernel_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], dtype=np.float32)
+            kernel_y = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'sobel_gx':
+            kernel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_x)
+        elif metodo == 'sobel_gy':
+            kernel_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel_y)
+        elif metodo == 'sobel_magnitude':
+            kernel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
+            kernel_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32)
+            return self._aplicar_gradiente_xy(kernel_x, kernel_y)
+        elif metodo == 'kirsch':
+            kernels = [
+                np.array([[5, 5, 5], [-3, 0, -3], [-3, -3, -3]], dtype=np.float32),
+                np.array([[-3, 5, 5], [-3, 0, 5], [-3, -3, -3]], dtype=np.float32),
+                np.array([[-3, -3, 5], [-3, 0, 5], [-3, -3, 5]], dtype=np.float32),
+                np.array([[-3, -3, -3], [-3, 0, 5], [-3, 5, 5]], dtype=np.float32),
+                np.array([[-3, -3, -3], [-3, 0, -3], [5, 5, 5]], dtype=np.float32),
+                np.array([[-3, -3, -3], [5, 0, -3], [5, 5, -3]], dtype=np.float32),
+                np.array([[5, -3, -3], [5, 0, -3], [5, -3, -3]], dtype=np.float32),
+                np.array([[5, 5, -3], [5, 0, -3], [-3, -3, -3]], dtype=np.float32)
+            ]
+            return self._aplicar_mascara_maxima(kernels)
+        elif metodo == 'robinson':
+            kernels = [
+                np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=np.float32),
+                np.array([[2, 1, 0], [1, 0, -1], [0, -1, -2]], dtype=np.float32),
+                np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]], dtype=np.float32),
+                np.array([[0, -1, -2], [1, 0, -1], [2, 1, 0]], dtype=np.float32),
+                np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32),
+                np.array([[-2, -1, 0], [-1, 0, 1], [0, 1, 2]], dtype=np.float32),
+                np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32),
+                np.array([[0, 1, 2], [-1, 0, 1], [-2, -1, 0]], dtype=np.float32)
+            ]
+            return self._aplicar_mascara_maxima(kernels)
+        elif metodo == 'frei_chen':
+            sq2 = np.sqrt(2)
+            kernels = [
+                np.array([[1, sq2, 1], [0, 0, 0], [-1, -sq2, -1]], dtype=np.float32),
+                np.array([[1, 0, -1], [sq2, 0, -sq2], [1, 0, -1]], dtype=np.float32),
+                np.array([[0, -1, sq2], [1, 0, -1], [-sq2, 1, 0]], dtype=np.float32),
+                np.array([[sq2, -1, 0], [-1, 0, 1], [0, 1, -sq2]], dtype=np.float32)
+            ]
+            return self._aplicar_mascara_maxima(kernels)
+        elif metodo == 'laplaciano_h1':
+            kernel = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel)
+        elif metodo == 'laplaciano_h2':
+            kernel = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], dtype=np.float32)
+            return self._aplicar_mascara_simples(kernel)
+        else:
+            raise ValueError("Método de borda não reconhecido.")
+
+    def _aplicar_mascara_simples(self, kernel):
+        R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+
+        R_abs = np.abs(R)
+
+        resultado = cv2.normalize(R_abs, None, 0, 255, cv2.NORM_MINMAX)
+
+        return resultado.astype(np.uint8)
+
+    def _aplicar_gradiente_xy(self, kernel_x, kernel_y):
+        Gx = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel_x)
+        Gy = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel_y)
+
+        magnitude = cv2.magnitude(Gx, Gy)
+
+        resultado = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
+        return resultado.astype(np.uint8)
+
+    def _aplicar_mascara_maxima(self, kernels):
+        max_response = np.zeros_like(self.image_gray, dtype=np.float64)
+
+        for kernel in kernels:
+            R = cv2.filter2D(self.image_gray, cv2.CV_64F, kernel)
+            R_abs = np.abs(R)
+
+            max_response = np.maximum(max_response, R_abs)
+
+        resultado = cv2.normalize(max_response, None, 0, 255, cv2.NORM_MINMAX)
+        return resultado.astype(np.uint8)
+
+    def limiarizacao_global(self):
+        img_float = self.image_gray.astype(np.float32)
+
+        T = np.mean(img_float)
+
+        while True:
+            R1 = img_float[img_float <= T]  # Fundo
+            R2 = img_float[img_float > T]   # Objeto
+
+            mu1 = np.mean(R1) if len(R1) > 0 else 0
+            mu2 = np.mean(R2) if len(R2) > 0 else 0
+
+            novo_T = (mu1 + mu2) / 2.0
+
+            if abs(T - novo_T) < 1e-4:
+                break
+
+            T = novo_T
+
+        _, resultado = cv2.threshold(self.image_gray, int(T), 255, cv2.THRESH_BINARY)
+        return resultado.astype(np.uint8)
+
+    def limiarizacao_local(self, metodo, n, k=None, C=10):
+        if n % 2 == 0:
+            n += 1
+
+        altura, largura = self.image_gray.shape
+        resultado = np.zeros((altura, largura), dtype=np.uint8)
+
+        pad = n // 2
+
+        img_padded = np.pad(self.image_gray.astype(np.float32), pad, mode='reflect')
+
+        for i in range(altura):
+            for j in range(largura):
+
+                vizinhanca = img_padded[i : i + n, j : j + n]
+                pixel_atual = self.image_gray[i, j]
+
+                if metodo == 'media':
+                    T = np.mean(vizinhanca) - C
+
+                elif metodo == 'minimo':
+                    T = np.min(vizinhanca) + C
+
+                elif metodo == 'maximo':
+                    T = np.max(vizinhanca) - C
+
+                elif metodo == 'niblack':
+                    if k is None:
+                        raise ValueError("O parâmetro 'k' precisa ser informado para Niblack.")
+
+                    mu = np.mean(vizinhanca)
+                    sigma = np.std(vizinhanca) # Desvio padrão manual da matriz nxn
+                    T = mu + k * sigma
+                else:
+                    raise ValueError("Método inválido.")
+
+                if pixel_atual > T:
+                    resultado[i, j] = 255
+
+        return resultado
+
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)
