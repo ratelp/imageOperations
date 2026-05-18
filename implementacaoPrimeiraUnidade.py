@@ -962,6 +962,77 @@ class Segmentacao:
 
         return resultado
 
+    def crescimento_regioes(self, sementes, tolerancia):
+        if not sementes:
+            raise ValueError("Informe pelo menos uma semente.")
+
+        altura, largura = self.image_gray.shape
+        tolerancia = max(0, int(tolerancia))
+        rotulos = np.zeros((altura, largura), dtype=np.int32)
+        visitados = np.zeros((altura, largura), dtype=bool)
+
+        if len(self.image.shape) == 3:
+            resultado = self.image.copy()
+        else:
+            resultado = cv2.cvtColor(self.image_gray, cv2.COLOR_GRAY2BGR)
+
+        cores = [
+            (0, 0, 255),
+            (0, 255, 0),
+            (255, 0, 0),
+            (0, 255, 255),
+            (255, 0, 255),
+            (255, 255, 0),
+            (0, 128, 255),
+            (255, 128, 0),
+            (128, 0, 255),
+            (128, 255, 0),
+        ]
+
+        vizinhos = [
+            (-1, -1), (-1, 0), (-1, 1),
+            (0, -1),           (0, 1),
+            (1, -1),  (1, 0),  (1, 1),
+        ]
+
+        for indice, (x, y) in enumerate(sementes, start=1):
+            if x < 0 or x >= largura or y < 0 or y >= altura:
+                continue
+
+            if visitados[y, x]:
+                continue
+
+            cor = cores[(indice - 1) % len(cores)]
+            valor_referencia = float(self.image_gray[y, x])
+            fila = [(x, y)]
+            inicio_fila = 0
+            visitados[y, x] = True
+            rotulos[y, x] = indice
+
+            while inicio_fila < len(fila):
+                atual_x, atual_y = fila[inicio_fila]
+                inicio_fila += 1
+
+                for desloc_y, desloc_x in vizinhos:
+                    novo_y = atual_y + desloc_y
+                    novo_x = atual_x + desloc_x
+
+                    if novo_x < 0 or novo_x >= largura or novo_y < 0 or novo_y >= altura:
+                        continue
+
+                    if visitados[novo_y, novo_x]:
+                        continue
+
+                    diferenca = abs(float(self.image_gray[novo_y, novo_x]) - valor_referencia)
+                    if diferenca <= tolerancia:
+                        visitados[novo_y, novo_x] = True
+                        rotulos[novo_y, novo_x] = indice
+                        fila.append((novo_x, novo_y))
+
+            resultado[rotulos == indice] = cor
+
+        return resultado
+
 if __name__ == "__main__":
     janela = tk.Tk()
     app = ImageOperationGUI(janela)

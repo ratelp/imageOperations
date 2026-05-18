@@ -87,6 +87,8 @@ class ImageOperationGUI:
         self.segmentacao_metodo_lim = tk.StringVar(value="media")
         self.segmentacao_n_lim = tk.IntVar(value=5)
         self.segmentacao_k_lim = tk.DoubleVar(value=-0.2)
+        self.segmentacao_tolerancia_regiao = tk.IntVar(value=15)
+        self.segmentacao_sementes = []
 
         # Variáveis para Filtros
         self.imagem_para_filtros = None
@@ -2106,6 +2108,13 @@ class ImageOperationGUI:
             value="limiarizacao",
             command=self._atualizar_opcoes_segmentacao,
         ).pack(anchor="w", padx=10)
+        tk.Radiobutton(
+            frame_tipo,
+            text="Crescimento de Regiões",
+            variable=self.segmentacao_mode,
+            value="crescimento_regioes",
+            command=self._atualizar_opcoes_segmentacao,
+        ).pack(anchor="w", padx=10)
 
         # Frame de parâmetros específicos
         self.frame_parametros_segmentacao = tk.LabelFrame(parent, text="Parâmetros", padx=10, pady=8)
@@ -2205,6 +2214,19 @@ class ImageOperationGUI:
         tk.Label(frame_lim_k, textvariable=self.segmentacao_k_lim, width=5).pack(side="left")
         self.frame_param_lim_k = frame_lim_k
 
+        # Crescimento de regiões
+        frame_regiao_tol = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Label(frame_regiao_tol, text="Tolerância:", width=15).pack(side="left")
+        tk.Scale(frame_regiao_tol, from_=0, to=255, orient="horizontal", variable=self.segmentacao_tolerancia_regiao).pack(side="left", fill="x", expand=True, padx=5)
+        tk.Label(frame_regiao_tol, textvariable=self.segmentacao_tolerancia_regiao, width=4).pack(side="left")
+        self.frame_param_regiao_tol = frame_regiao_tol
+
+        frame_regiao_sementes = tk.Frame(self.frame_parametros_segmentacao)
+        tk.Button(frame_regiao_sementes, text="Selecionar Sementes", command=self.selecionar_sementes_segmentacao).pack(side="left", padx=(0, 8))
+        self.label_sementes_segmentacao = tk.Label(frame_regiao_sementes, text="0 sementes selecionadas", foreground="red")
+        self.label_sementes_segmentacao.pack(side="left")
+        self.frame_param_regiao_sementes = frame_regiao_sementes
+
         # Botão Aplicar
         btn_aplicar = tk.Button(parent, text="Aplicar Segmentação", command=self.aplicar_segmentacao, bg="#212F22", fg="white", font=("Arial", 11, "bold"))
         btn_aplicar.pack(pady=20, fill="x", padx=10)
@@ -2221,6 +2243,8 @@ class ImageOperationGUI:
         self.frame_param_lim_metodo.pack_forget()
         self.frame_param_lim_n.pack_forget()
         self.frame_param_lim_k.pack_forget()
+        self.frame_param_regiao_tol.pack_forget()
+        self.frame_param_regiao_sementes.pack_forget()
 
         modo = self.segmentacao_mode.get()
 
@@ -2244,6 +2268,9 @@ class ImageOperationGUI:
                 if self.segmentacao_metodo_lim.get() == "niblack":
                     self.frame_param_lim_k.pack(fill="x", pady=5)
 
+        elif modo == "crescimento_regioes":
+            self.frame_param_regiao_tol.pack(fill="x", pady=5)
+            self.frame_param_regiao_sementes.pack(fill="x", pady=5)
 
     def selecionar_imagem_segmentacao(self):
         from implementacaoPrimeiraUnidade import Image
@@ -2253,13 +2280,78 @@ class ImageOperationGUI:
             return
         try:
             self.imagem_para_segmentacao = Image(caminho)
+            self.segmentacao_sementes = []
             self.label_img_segmentacao.config(text=Path(caminho).name, foreground="green")
+            self._atualizar_label_sementes_segmentacao()
             try:
                 self.imagem_para_segmentacao.showImage()
             except Exception:
                 pass
         except Exception as erro:
             messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def _atualizar_label_sementes_segmentacao(self):
+        total = len(self.segmentacao_sementes)
+        texto = "1 semente selecionada" if total == 1 else f"{total} sementes selecionadas"
+        cor = "green" if total else "red"
+        self.label_sementes_segmentacao.config(text=texto, foreground=cor)
+
+    def selecionar_sementes_segmentacao(self):
+        if self.imagem_para_segmentacao is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+
+        janela = "Selecionar Sementes - Enter/Esc finaliza, C limpa"
+        imagem_base = self.imagem_para_segmentacao.image.copy()
+        if len(imagem_base.shape) == 2:
+            imagem_base = cv2.cvtColor(imagem_base, cv2.COLOR_GRAY2BGR)
+
+        visualizacao = imagem_base.copy()
+        sementes = list(self.segmentacao_sementes)
+        janela_aberta = False
+
+        def redesenhar():
+            visualizacao[:] = imagem_base
+            for indice, (x, y) in enumerate(sementes, start=1):
+                cv2.circle(visualizacao, (x, y), 4, (0, 0, 255), -1)
+                cv2.putText(visualizacao, str(indice), (x + 6, y - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 1)
+            cv2.imshow(janela, visualizacao)
+
+        def registrar_clique(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONDOWN:
+                sementes.append((x, y))
+                redesenhar()
+
+        try:
+            cv2.namedWindow(janela)
+            janela_aberta = True
+            cv2.setMouseCallback(janela, registrar_clique)
+            redesenhar()
+
+            while True:
+                if cv2.getWindowProperty(janela, cv2.WND_PROP_VISIBLE) < 1:
+                    janela_aberta = False
+                    break
+
+                tecla = cv2.waitKey(20) & 0xFF
+                if tecla in (13, 27):
+                    break
+                if tecla in (ord("c"), ord("C")):
+                    sementes.clear()
+                    redesenhar()
+
+            self.segmentacao_sementes = sementes
+            self._atualizar_label_sementes_segmentacao()
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível selecionar sementes:\n{erro}")
+        finally:
+            if janela_aberta:
+                try:
+                    cv2.setMouseCallback(janela, lambda *args: None)
+                    cv2.destroyWindow(janela)
+                    cv2.waitKey(1)
+                except Exception:
+                    pass
 
     def aplicar_segmentacao(self):
         from implementacaoPrimeiraUnidade import Segmentacao
@@ -2281,7 +2373,7 @@ class ImageOperationGUI:
                 metodo = self.segmentacao_metodo_borda.get()
                 resultado = seg.deteccao_bordas(metodo)
                 win_title = f"Segmentacao (Deteccao de Bordas - {metodo})"
-            else:
+            elif self.segmentacao_mode.get() == "limiarizacao":
                 if self.segmentacao_tipo_lim.get() == "global":
                     resultado = seg.limiarizacao_global()
                     win_title = "Segmentacao (Limiarizacao Global)"
@@ -2294,9 +2386,17 @@ class ImageOperationGUI:
                     else:
                         resultado = seg.limiarizacao_local(metodo, n)
                     win_title = f"Segmentacao (Limiarizacao Local - {metodo})"
+            else:
+                if not self.segmentacao_sementes:
+                    messagebox.showwarning("Aviso", "Selecione pelo menos uma semente para o crescimento de regiões.")
+                    return
+
+                resultado = seg.crescimento_regioes(self.segmentacao_sementes, self.segmentacao_tolerancia_regiao.get())
+                win_title = "Segmentacao (Crescimento de Regioes)"
 
             try:
                 cv2.imshow(win_title, resultado)
+                cv2.waitKey(1)
             except Exception:
                 pass
             messagebox.showinfo("Sucesso", "Segmentação aplicada com sucesso!")
