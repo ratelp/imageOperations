@@ -456,6 +456,45 @@ class ImageFilter:
         ]
         return self._filtro_variancia_minima(regioes)
 
+    def passa_alta(self, mascara):
+        mascaras = {
+            "H1": np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]], dtype=np.float32),
+            "H2": np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], dtype=np.float32),
+            "M1": np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32),
+            "M2": np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]], dtype=np.float32),
+            "M3": np.array([[1, -2, 1], [-2, 5, -2], [1, -2, 1]], dtype=np.float32),
+        }
+        kernel = mascaras[mascara]
+
+        def aplicar_mascara(canal):
+            padded = np.pad(canal, 1, mode="reflect").astype(np.float32)
+            resultado = np.zeros_like(canal, dtype=np.float32)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + 3, x : x + 3]
+                    resultado[y, x] = np.sum(janela * kernel)
+
+            return self._clip_uint8(resultado)
+
+        return self._apply_to_gray_or_color(aplicar_mascara)
+
+    def alto_reforco(self, fator_a):
+        def aplicar(canal):
+            canal_float = canal.astype(np.float32)
+            padded = np.pad(canal_float, 1, mode="reflect")
+            baixa = np.zeros_like(canal_float)
+
+            for y in range(canal.shape[0]):
+                for x in range(canal.shape[1]):
+                    janela = padded[y : y + 3, x : x + 3]
+                    baixa[y, x] = np.sum(janela) / 9
+
+            return self._clip_uint8((fator_a * canal_float) - baixa)
+
+        return self._apply_to_gray_or_color(aplicar)
+
+
 class Realce:
     def __init__(self, image):
         self.image = image.image

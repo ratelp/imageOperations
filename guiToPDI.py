@@ -79,9 +79,11 @@ class ImageOperationGUI:
 
         # Variáveis para Filtros
         self.imagem_para_filtros = None
+        self.filtro_categoria = tk.StringVar(value="passa_baixa")
         self.filtro_tipo = tk.StringVar(value="Média")
         self.filtro_tamanho = tk.IntVar(value=3)
         self.filtro_modo_cor = tk.StringVar(value="yuv")
+        self.filtro_high_boost_a = tk.DoubleVar(value=1.5)
         self.combo_filtro_tipo = None
         self.frame_parametros_filtro = None
 
@@ -1462,7 +1464,7 @@ class ImageOperationGUI:
                 pass
 
     def _criar_aba_filtros(self, parent):
-        """Cria a aba para filtros passa-baixa"""
+        """Cria a aba para filtros passa-baixa e passa-alta"""
         tk.Label(parent, text="Filtros", font=("Arial", 14, "bold")).pack(pady=15)
 
         frame_selecao = tk.Frame(parent)
@@ -1500,6 +1502,24 @@ class ImageOperationGUI:
             value="channels",
         ).pack(anchor="w", padx=10)
 
+        frame_categoria = tk.LabelFrame(parent, text="Categoria", padx=10, pady=8)
+        frame_categoria.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Radiobutton(
+            frame_categoria,
+            text="Passa-baixa",
+            variable=self.filtro_categoria,
+            value="passa_baixa",
+            command=self._atualizar_opcoes_filtro,
+        ).pack(side="left", padx=10)
+        tk.Radiobutton(
+            frame_categoria,
+            text="Passa-alta",
+            variable=self.filtro_categoria,
+            value="passa_alta",
+            command=self._atualizar_opcoes_filtro,
+        ).pack(side="left", padx=10)
+
         frame_tipo = tk.LabelFrame(parent, text="Filtro", padx=10, pady=8)
         frame_tipo.pack(fill="x", padx=10, pady=(0, 10))
 
@@ -1532,6 +1552,9 @@ class ImageOperationGUI:
         ).pack(pady=20, fill="x", padx=10)
 
     def _opcoes_filtro_por_categoria(self):
+        if self.filtro_categoria.get() == "passa_alta":
+            return ["H1", "H2", "M1", "M2", "M3", "Alto-reforço (High-Boost)"]
+
         return [
             "Média",
             "Mediana",
@@ -1579,6 +1602,21 @@ class ImageOperationGUI:
                 variable=self.filtro_tamanho,
                 value=5,
             ).pack(side="left", padx=10)
+        elif tipo == "Alto-reforço (High-Boost)":
+            frame_a = tk.Frame(self.frame_parametros_filtro)
+            frame_a.pack(fill="x", pady=5)
+            tk.Label(frame_a, text="Fator A:", width=14).pack(side="left")
+            tk.Scale(
+                frame_a,
+                from_=1.0,
+                to=5.0,
+                orient="horizontal",
+                resolution=0.1,
+                variable=self.filtro_high_boost_a,
+            ).pack(side="left", fill="x", expand=True, padx=5)
+            tk.Label(frame_a, textvariable=self.filtro_high_boost_a, width=5).pack(
+                side="left"
+            )
         else:
             tk.Label(
                 self.frame_parametros_filtro,
@@ -1646,6 +1684,10 @@ class ImageOperationGUI:
                 resultado = filtro.nagao_matsuyama()
             elif tipo == "Somboonkaew":
                 resultado = filtro.somboonkaew()
+            elif tipo in {"H1", "H2", "M1", "M2", "M3"}:
+                resultado = filtro.passa_alta(tipo)
+            elif tipo == "Alto-reforço (High-Boost)":
+                resultado = filtro.alto_reforco(self.filtro_high_boost_a.get())
             else:
                 messagebox.showwarning("Aviso", "Selecione um filtro válido.")
                 return
