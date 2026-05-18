@@ -87,6 +87,12 @@ class ImageOperationGUI:
         self.combo_filtro_tipo = None
         self.frame_parametros_filtro = None
 
+        # Variáveis para Meio-tom
+        self.imagem_para_meio_tom = None
+        self.meio_tom_categoria = tk.StringVar(value="ordenado")
+        self.meio_tom_tipo = tk.StringVar(value="2x2")
+        self.combo_meio_tom_tipo = None
+
         self._criar_widgets()
 
     def _criar_widgets(self):
@@ -124,6 +130,11 @@ class ImageOperationGUI:
         frame_filtros = ttk.Frame(notebook)
         notebook.add(frame_filtros, text="Filtros")
         self._criar_aba_filtros(frame_filtros)
+
+        # Aba 7: Meio-tom
+        frame_meio_tom = ttk.Frame(notebook)
+        notebook.add(frame_meio_tom, text="Meio-tom")
+        self._criar_aba_meio_tom(frame_meio_tom)
 
     def mostrar_original_e_resultado(self, titulo_original, img_original, titulo_resultado, img_result):
         """Mostra lado a lado (ou em janelas separadas) a imagem original e a imagem editada."""
@@ -1697,6 +1708,141 @@ class ImageOperationGUI:
             messagebox.showinfo("Sucesso", "Filtro aplicado com sucesso!")
         except Exception as erro:
             messagebox.showerror("Erro", f"Erro ao aplicar filtro:\n{erro}")
+
+    def _criar_aba_meio_tom(self, parent):
+        """Cria a aba para técnicas de meio-tom"""
+        tk.Label(parent, text="Meio-tom", font=("Arial", 14, "bold")).pack(pady=15)
+
+        frame_selecao = tk.Frame(parent)
+        frame_selecao.pack(pady=10)
+
+        self.label_img_meio_tom = tk.Label(
+            frame_selecao,
+            text="Nenhuma imagem selecionada",
+            font=("Arial", 10),
+            foreground="red",
+        )
+        self.label_img_meio_tom.pack(side="left", padx=10)
+
+        tk.Button(
+            frame_selecao,
+            text="Selecionar Imagem",
+            command=self.selecionar_imagem_meio_tom,
+        ).pack(side="left", padx=10)
+
+        frame_categoria = tk.LabelFrame(parent, text="Técnica", padx=10, pady=8)
+        frame_categoria.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Radiobutton(
+            frame_categoria,
+            text="Pontilhado Ordenado",
+            variable=self.meio_tom_categoria,
+            value="ordenado",
+            command=self._atualizar_opcoes_meio_tom,
+        ).pack(anchor="w", padx=10)
+        tk.Radiobutton(
+            frame_categoria,
+            text="Pontilhado com Difusão",
+            variable=self.meio_tom_categoria,
+            value="difusao",
+            command=self._atualizar_opcoes_meio_tom,
+        ).pack(anchor="w", padx=10)
+
+        frame_tipo = tk.LabelFrame(parent, text="Método", padx=10, pady=8)
+        frame_tipo.pack(fill="x", padx=10, pady=(0, 10))
+
+        tk.Label(frame_tipo, text="Selecione:").pack(side="left", padx=(0, 8))
+        self.combo_meio_tom_tipo = ttk.Combobox(
+            frame_tipo,
+            textvariable=self.meio_tom_tipo,
+            state="readonly",
+            width=30,
+        )
+        self.combo_meio_tom_tipo.pack(side="left", fill="x", expand=True)
+
+        self._atualizar_opcoes_meio_tom()
+
+        tk.Button(
+            parent,
+            text="Aplicar Meio-tom",
+            command=self.aplicar_meio_tom,
+            bg="#212F22",
+            fg="white",
+            font=("Arial", 11, "bold"),
+        ).pack(pady=20, fill="x", padx=10)
+
+    def _opcoes_meio_tom_por_categoria(self):
+        if self.meio_tom_categoria.get() == "difusao":
+            return [
+                "Floyd e Steinberg",
+                "Rogers",
+                "Jarvis, Judice e Ninke",
+                "Stucki",
+                "Stevenson e Arce",
+            ]
+
+        return ["2x2", "2x3", "3x3"]
+
+    def _atualizar_opcoes_meio_tom(self):
+        opcoes = self._opcoes_meio_tom_por_categoria()
+        if self.combo_meio_tom_tipo is not None:
+            self.combo_meio_tom_tipo.configure(values=opcoes)
+
+        if self.meio_tom_tipo.get() not in opcoes:
+            self.meio_tom_tipo.set(opcoes[0])
+
+    def selecionar_imagem_meio_tom(self):
+        """Seleciona uma imagem para meio-tom"""
+        from implementacaoPrimeiraUnidade import Image
+
+        caminho = filedialog.askopenfilename(
+            title="Selecione uma imagem",
+            filetypes=[
+                ("Imagens", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pgm"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+        if not caminho:
+            return
+
+        try:
+            self.imagem_para_meio_tom = Image(caminho)
+            self.label_img_meio_tom.config(
+                text=f"Imagem: {Path(caminho).name}",
+                foreground="green",
+            )
+            try:
+                self.imagem_para_meio_tom.showImage()
+            except Exception:
+                pass
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a imagem:\n{erro}")
+
+    def aplicar_meio_tom(self):
+        """Aplica a técnica de meio-tom selecionada"""
+        from implementacaoPrimeiraUnidade import Halftoning
+
+        if self.imagem_para_meio_tom is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+
+        try:
+            meio_tom = Halftoning(self.imagem_para_meio_tom)
+            tipo = self.meio_tom_tipo.get()
+
+            if self.meio_tom_categoria.get() == "ordenado":
+                resultado = meio_tom.pontilhado_ordenado(tipo)
+            elif self.meio_tom_categoria.get() == "difusao":
+                resultado = meio_tom.difusao_erro(tipo)
+            else:
+                messagebox.showwarning("Aviso", "Selecione uma técnica válida.")
+                return
+
+            cv2.imshow(f"Resultado - Meio-tom ({tipo})", resultado)
+            cv2.waitKey(1)
+            messagebox.showinfo("Sucesso", "Meio-tom aplicado com sucesso!")
+        except Exception as erro:
+            messagebox.showerror("Erro", f"Erro ao aplicar meio-tom:\n{erro}")
 
     def _criar_aba_realce(self, parent):
         """Cria a aba para realce e transformações de contraste"""

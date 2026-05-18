@@ -495,6 +495,131 @@ class ImageFilter:
         return self._apply_to_gray_or_color(aplicar)
 
 
+class Halftoning:
+    def __init__(self, image):
+        self.image = image.image
+
+        if len(self.image.shape) == 3:
+            self.image_gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        else:
+            self.image_gray = self.image.copy()
+
+    def pontilhado_ordenado(self, tamanho_matriz):
+        matrizes = {
+            "2x2": np.array([[0, 2], [3, 1]], dtype=np.float32),
+            "2x3": np.array([[0, 4, 1], [5, 2, 3]], dtype=np.float32),
+            "3x3": np.array(
+                [
+                    [6, 8, 4],
+                    [1, 0, 3],
+                    [5, 2, 7],
+                ],
+                dtype=np.float32,
+            ),
+        }
+
+        matriz = matrizes[tamanho_matriz]
+        matriz = ((matriz + 0.5) / matriz.size) * 255
+        limiares = np.tile(matriz, (self.image_gray.shape[0] // len(matriz) + 1, self.image_gray.shape[1] // len(matriz[0]) + 1))[:self.image_gray.shape[0], :self.image_gray.shape[1]]
+
+        resultado = ((self.image_gray > limiares) * 255).astype(np.uint8)
+
+        return resultado
+
+    def difusao_erro(self, tipo):
+        kernels = {
+            "Floyd e Steinberg": (
+                16,
+                [
+                    (0, 1, 7),
+                    (1, -1, 3),
+                    (1, 0, 5),
+                    (1, 1, 1),
+                ],
+            ),
+            "Rogers": (
+                8,
+                [
+                    (0, 1, 3),
+                    (1, 0, 3),
+                    (1, 1, 2),
+                ],
+            ),
+            "Jarvis, Judice e Ninke": (
+                48,
+                [
+                    (0, 1, 7),
+                    (0, 2, 5),
+                    (1, -2, 3),
+                    (1, -1, 5),
+                    (1, 0, 7),
+                    (1, 1, 5),
+                    (1, 2, 3),
+                    (2, -2, 1),
+                    (2, -1, 3),
+                    (2, 0, 5),
+                    (2, 1, 3),
+                    (2, 2, 1),
+                ],
+            ),
+            "Stucki": (
+                42,
+                [
+                    (0, 1, 8),
+                    (0, 2, 4),
+                    (1, -2, 2),
+                    (1, -1, 4),
+                    (1, 0, 8),
+                    (1, 1, 4),
+                    (1, 2, 2),
+                    (2, -2, 1),
+                    (2, -1, 2),
+                    (2, 0, 4),
+                    (2, 1, 2),
+                    (2, 2, 1),
+                ],
+            ),
+            "Stevenson e Arce": (
+                200,
+                [
+                    (0, 2, 32),
+                    (1, -3, 12),
+                    (1, -1, 26),
+                    (1, 1, 30),
+                    (1, 3, 16),
+                    (2, -2, 12),
+                    (2, 0, 26),
+                    (2, 2, 12),
+                    (3, -3, 5),
+                    (3, -1, 12),
+                    (3, 1, 12),
+                    (3, 3, 5),
+                ],
+            ),
+        }
+
+        divisor, pesos = kernels[tipo]
+        imagem_com_erros = self.image_gray.astype(np.float32).copy()
+        resultado = np.zeros_like(self.image_gray, dtype=np.uint8)
+        altura, largura = imagem_com_erros.shape
+
+        for y in range(altura):
+            for x in range(largura):
+                valor_antigo = imagem_com_erros[y, x]
+                valor_novo = 255 if valor_antigo >= 128 else 0
+                resultado[y, x] = valor_novo
+                erro = valor_antigo - valor_novo
+
+                for desloc_y, desloc_x, peso in pesos:
+                    vizinho_y = y + desloc_y
+                    vizinho_x = x + desloc_x
+
+                    if 0 <= vizinho_y < altura and 0 <= vizinho_x < largura:
+                        imagem_com_erros[vizinho_y, vizinho_x] += erro * peso / divisor
+
+        return resultado
+
+
 class Realce:
     def __init__(self, image):
         self.image = image.image
